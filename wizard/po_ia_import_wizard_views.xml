@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="po_ia_import_wizard_form" model="ir.ui.view">
+        <field name="name">po.ia.import.wizard.form</field>
+        <field name="model">po.ia.import.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Cargar presupuesto de compra con IA">
+                <field name="state" invisible="1"/>
+
+                <!-- Etapa 1: subir PDF -->
+                <group invisible="state != 'upload'">
+                    <div colspan="2" class="text-muted">
+                        Subí el PDF del presupuesto/oferta del proveedor.
+                        La IA (Claude Haiku) va a leerlo y proponer las líneas.
+                    </div>
+                    <field name="pdf_file" filename="pdf_filename"
+                           widget="binary" required="state == 'upload'"/>
+                    <field name="pdf_filename" invisible="1"/>
+                </group>
+
+                <!-- Etapa 2: revisar -->
+                <group invisible="state != 'review'" col="4">
+                    <field name="partner_id" colspan="2"
+                           required="state == 'review'"
+                           options="{'no_create': True}"/>
+                    <field name="partner_ref"/>
+                    <field name="date_order"/>
+                    <field name="currency_id"
+                           options="{'no_create': True}"/>
+                    <field name="confidence" widget="percentage"/>
+                    <field name="detected_cuit"/>
+                    <field name="detected_name"/>
+                    <field name="usage_info"/>
+                </group>
+                <group invisible="state != 'review' or not detected_cuit or partner_id"
+                       col="1">
+                    <div class="alert alert-warning" role="alert">
+                        No se encontró un proveedor con el CUIT detectado. Seleccionalo
+                        a mano arriba antes de crear el presupuesto.
+                    </div>
+                </group>
+
+                <field name="line_ids" invisible="state != 'review'">
+                    <list editable="bottom">
+                        <field name="codigo"/>
+                        <field name="descripcion"/>
+                        <field name="cantidad"/>
+                        <field name="precio_unit"/>
+                        <field name="descuento"/>
+                        <field name="product_id"
+                               options="{'no_create': True}"/>
+                        <field name="match_status" widget="badge"
+                               decoration-success="match_status in ('auto_supplier','auto_code')"
+                               decoration-info="match_status == 'suggested'"
+                               decoration-danger="match_status == 'none'"/>
+                    </list>
+                </field>
+
+                <group invisible="state != 'review'" col="1">
+                    <field name="notes" readonly="1"
+                           invisible="not notes"/>
+                    <field name="force_create"/>
+                </group>
+
+                <footer>
+                    <button name="action_extract" string="Leer con IA"
+                            type="object" class="btn-primary"
+                            invisible="state != 'upload'"/>
+                    <button name="action_create_po" string="Crear presupuesto"
+                            type="object" class="btn-primary"
+                            invisible="state != 'review'"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_po_ia_import_wizard" model="ir.actions.act_window">
+        <field name="name">Cargar presupuesto con IA</field>
+        <field name="res_model">po.ia.import.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+
+    <menuitem id="menu_po_ia_import_wizard"
+              name="Cargar presupuesto con IA"
+              parent="purchase.menu_procurement_management"
+              action="action_po_ia_import_wizard"
+              sequence="25"/>
+</odoo>
