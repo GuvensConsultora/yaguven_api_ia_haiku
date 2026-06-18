@@ -10,6 +10,15 @@
             <xpath expr="//sheet" position="after">
                 <div class="o_attachment_preview"/>
             </xpath>
+            <!-- Reemplaza el "Subir factura" (widget purchase_file_uploader) por
+                 un botón directo "Crear factura": crea la factura de proveedor con
+                 todos los datos de la OC (action_create_invoice nativo). -->
+            <xpath expr="//widget[@name='purchase_file_uploader']" position="replace">
+                <button name="action_create_invoice" type="object"
+                        string="Crear factura" class="btn-primary"
+                        context="{'default_move_type': 'in_invoice'}"
+                        invisible="state != 'purchase' or invoice_status == 'invoiced'"/>
+            </xpath>
         </field>
     </record>
 </odoo>
