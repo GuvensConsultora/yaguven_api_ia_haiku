@@ -116,6 +116,19 @@ class PoIaImportWizard(models.TransientModel):
             prod = Product.search([("default_code", "=", codigo)], limit=1)
             if prod:
                 return prod, "auto_code"
+        # 2.5) prefijo del código del proveedor: muchos códigos llegan como
+        # "<nuestro_default_code>_<nro>" (caso Michelin). Cortamos el sufijo "_<nro>"
+        # y buscamos default_code EXACTO del prefijo (no ilike → sin falsos positivos).
+        if codigo and "_" in codigo:
+            prefijos = []
+            for pref in (codigo.rsplit("_", 1)[0], codigo.split("_", 1)[0]):
+                pref = pref.strip()
+                if pref and pref not in prefijos:
+                    prefijos.append(pref)
+            for pref in prefijos:
+                prods = Product.search([("default_code", "=", pref)], limit=2)
+                if len(prods) == 1:
+                    return prods[0], "auto_prefix"
         # 3) nombre ilike — match único de alta confianza.
         if descripcion:
             prods = Product.search(
@@ -269,6 +282,7 @@ class PoIaImportWizardLine(models.TransientModel):
     match_status = fields.Selection([
         ("auto_supplier", "Auto (proveedor)"),
         ("auto_code", "Auto (código)"),
+        ("auto_prefix", "Auto (prefijo)"),
         ("suggested", "Sugerido"),
         ("created", "Creado"),
         ("none", "Sin match"),

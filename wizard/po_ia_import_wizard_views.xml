@@ -51,7 +51,7 @@
                                options="{'no_create': True}"/>
                         <field name="match_status" widget="badge"
                                decoration-success="match_status in ('auto_supplier','auto_code','created')"
-                               decoration-info="match_status == 'suggested'"
+                               decoration-info="match_status in ('suggested','auto_prefix')"
                                decoration-danger="match_status == 'none'"/>
                         <button name="action_open_product_create" type="object"
                                 string="Crear producto" icon="fa-plus"

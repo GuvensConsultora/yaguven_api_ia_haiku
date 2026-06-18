@@ -87,6 +87,20 @@ class TestPoIaImport(TransactionCase):
         self.assertEqual(prod, self.prod_manual)
         self.assertEqual(status, "suggested")
 
+    def test_match_prefix_underscore(self):
+        # Código tipo Michelin "<nuestro_code>_<nro>" → matchea por prefijo exacto.
+        wiz = self._new_wizard()
+        prod, status = wiz._match_product(self.partner, "DC001_7", "lo que sea")
+        self.assertEqual(prod, self.prod_dc)
+        self.assertEqual(status, "auto_prefix")
+
+    def test_match_prefix_no_false_positive(self):
+        # Prefijo que no es un default_code existente → no inventa match.
+        wiz = self._new_wizard()
+        prod, status = wiz._match_product(self.partner, "NOEXISTE_9", "xxxx inexistente yyyy")
+        self.assertFalse(prod)
+        self.assertEqual(status, "none")
+
     def test_match_none(self):
         wiz = self._new_wizard()
         prod, status = wiz._match_product(self.partner, "NOEXISTE", "xxxxx inexistente yyyy")
