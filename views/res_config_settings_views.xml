@@ -3,7 +3,7 @@
     <record id="res_config_settings_view_form_ia_haiku" model="ir.ui.view">
         <field name="name">res.config.settings.view.form.inherit.yaguven.ia.haiku</field>
         <field name="model">res.config.settings</field>
-        <field name="inherit_id" ref="purchase.res_config_settings_view_form"/>
+        <field name="inherit_id" ref="purchase.res_config_settings_view_form_purchase"/>
         <field name="arch" type="xml">
             <xpath expr="//app[@name='purchase']" position="inside">
                 <block title="IA Haiku — Carga de presupuestos"
