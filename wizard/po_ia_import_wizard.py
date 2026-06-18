@@ -330,6 +330,14 @@ class PoIaImportWizard(models.TransientModel):
             line.write(write_vals)
             self._seed_supplierinfo(wl)
 
+        # Marca la OC como cargada por IA y guarda nro/fecha de la factura del
+        # proveedor para volcarlos al crear la factura (action_ia_create_invoice).
+        self.env["po.ia.import.source"].create({
+            "order_id": order.id,
+            "invoice_number": self.partner_ref or False,
+            "invoice_date": self.date_order or False,
+        })
+
         self._attach_source_pdf(order)
 
         return {

@@ -10,14 +10,17 @@
             <xpath expr="//sheet" position="after">
                 <div class="o_attachment_preview"/>
             </xpath>
-            <!-- Reemplaza el "Subir factura" (widget purchase_file_uploader) por
-                 un botón directo "Crear factura": crea la factura de proveedor con
-                 todos los datos de la OC (action_create_invoice nativo). -->
-            <xpath expr="//widget[@name='purchase_file_uploader']" position="replace">
-                <button name="action_create_invoice" type="object"
+            <!-- Solo en OC cargadas por IA: ocultamos el "Subir factura" nativo y
+                 mostramos un botón directo "Crear factura" que crea la factura con
+                 las cantidades completas de la OC + fecha y nro de la factura. -->
+            <xpath expr="//widget[@name='purchase_file_uploader']" position="before">
+                <field name="ia_haiku_origin" invisible="1"/>
+                <button name="action_ia_create_invoice" type="object"
                         string="Crear factura" class="btn-primary"
-                        context="{'default_move_type': 'in_invoice'}"
-                        invisible="state != 'purchase' or invoice_status == 'invoiced'"/>
+                        invisible="state != 'purchase' or not ia_haiku_origin or invoice_status == 'invoiced'"/>
+            </xpath>
+            <xpath expr="//widget[@name='purchase_file_uploader']" position="attributes">
+                <attribute name="invisible">state != 'purchase' or ia_haiku_origin</attribute>
             </xpath>
         </field>
     </record>

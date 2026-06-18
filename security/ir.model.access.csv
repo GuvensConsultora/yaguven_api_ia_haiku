@@ -4,3 +4,4 @@ access_po_ia_import_wizard_line_purchase,po.ia.import.wizard.line purchase user,
 access_po_ia_product_create_wizard_purchase,po.ia.product.create.wizard purchase user,model_po_ia_product_create_wizard,purchase.group_purchase_user,1,1,1,1
 access_po_ia_product_create_attr_purchase,po.ia.product.create.attr purchase user,model_po_ia_product_create_attr,purchase.group_purchase_user,1,1,1,1
 access_po_ia_import_wizard_perception_purchase,po.ia.import.wizard.perception purchase user,model_po_ia_import_wizard_perception,purchase.group_purchase_user,1,1,1,1
+access_po_ia_import_source_purchase,po.ia.import.source purchase user,model_po_ia_import_source,purchase.group_purchase_user,1,1,1,1

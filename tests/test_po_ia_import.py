@@ -227,6 +227,20 @@ class TestPoIaImport(TransactionCase):
             order.message_ids.filtered(lambda m: "Haiku" in (m.body or "")),
             "Debe haber una nota en el chatter referenciando el archivo origen")
 
+    def test_create_po_records_ia_source(self):
+        wiz = self._new_wizard()
+        fake = self._fake_extraction([
+            {"codigo": "DC001", "descripcion": "Cubierta DC Test",
+             "cantidad": 3, "precio_unit": 100.0, "descuento": 0}])
+        self._run_extract(wiz, fake)
+        action = wiz.action_create_po()
+        order = self.env["purchase.order"].browse(action["res_id"])
+        src = self.env["po.ia.import.source"].search([("order_id", "=", order.id)])
+        self.assertTrue(src, "Debe quedar el registro de origen IA")
+        self.assertTrue(order.ia_haiku_origin)
+        self.assertEqual(src.invoice_number, "PRES-001")   # = referencia del PDF
+        self.assertEqual(str(src.invoice_date), "2026-06-17")  # = fecha del PDF
+
     def test_create_blocks_without_partner(self):
         wiz = self._new_wizard()
         fake = self._fake_extraction(
