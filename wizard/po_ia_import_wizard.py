@@ -315,7 +315,7 @@ class PoIaImportWizard(models.TransientModel):
                 write_vals["discount"] = wl.descuento
             if perc_taxes:
                 # (4, id) suma la percepción sin pisar el IVA que trae el producto.
-                write_vals["taxes_id"] = [(4, t.id) for t in perc_taxes]
+                write_vals["tax_ids"] = [(4, t.id) for t in perc_taxes]
             line.write(write_vals)
             self._seed_supplierinfo(wl)
 
