@@ -31,7 +31,7 @@
                 <field name="attr_line_ids">
                     <list editable="bottom">
                         <field name="attribute_id"
-                               readonly="parent.mode == 'variant'"
+                               required="value_id or new_value"
                                options="{'no_create': True}"/>
                         <field name="value_id"
                                options="{'no_create': True}"/>

@@ -74,7 +74,10 @@ class PoIaProductCreateWizard(models.TransientModel):
     # ------------------------------------------------------------------
     def action_apply(self):
         self.ensure_one()
-        if not self.attr_line_ids:
+        # Ignoramos filas totalmente vacías (ej. la fila en blanco de la grilla editable).
+        rows = self.attr_line_ids.filtered(
+            lambda r: r.attribute_id or r.value_id or (r.new_value or "").strip())
+        if not rows:
             raise UserError(_("Cargá al menos un atributo (Marca, Modelo, ...)."))
 
         tmpl = self._get_or_create_template()
@@ -82,7 +85,7 @@ class PoIaProductCreateWizard(models.TransientModel):
         # Resolver cada atributo a su product.template.attribute.value (ptav),
         # creando el valor y/o sumándolo a la línea de atributo si hace falta.
         combination = self.env["product.template.attribute.value"]
-        for row in self.attr_line_ids:
+        for row in rows:
             ptav = self._resolve_attribute_value(tmpl, row)
             combination |= ptav
 
@@ -190,7 +193,7 @@ class PoIaProductCreateAttr(models.TransientModel):
 
     create_wizard_id = fields.Many2one(
         "po.ia.product.create.wizard", required=True, ondelete="cascade")
-    attribute_id = fields.Many2one("product.attribute", string="Atributo", required=True)
+    attribute_id = fields.Many2one("product.attribute", string="Atributo")
     value_id = fields.Many2one(
         "product.attribute.value", string="Valor existente",
         domain="[('attribute_id','=',attribute_id)]")
