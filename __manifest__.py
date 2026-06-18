@@ -1,6 +1,6 @@
 {
     "name": "Yagüven — Carga de presupuestos de compra con IA (Haiku)",
-    "version": "19.0.1.6.0",
+    "version": "19.0.1.7.0",
     "author": "Yagüven C.G.",
     "website": "https://yaguven.com",
     "category": "Purchases",

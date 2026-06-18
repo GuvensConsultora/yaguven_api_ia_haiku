@@ -61,6 +61,19 @@
                     </list>
                 </field>
 
+                <separator string="Percepciones detectadas"
+                           invisible="state != 'review' or not percepcion_ids"/>
+                <field name="percepcion_ids"
+                       invisible="state != 'review' or not percepcion_ids">
+                    <list editable="bottom">
+                        <field name="tipo" readonly="1"/>
+                        <field name="jurisdiccion" readonly="1"/>
+                        <field name="alicuota" readonly="1"/>
+                        <field name="importe" readonly="1"/>
+                        <field name="tax_id" options="{'no_create': True}"/>
+                    </list>
+                </field>
+
                 <group invisible="state != 'review'" col="1">
                     <field name="notes" readonly="1"
                            invisible="not notes"/>

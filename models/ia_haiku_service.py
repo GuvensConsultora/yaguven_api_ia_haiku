@@ -30,6 +30,10 @@ EXTRACTION_SYSTEM = (
     '     "cantidad": <número>, "precio_unit": <número>, "descuento": <número 0-100>,\n'
     '     "importe": <número>}\n'
     "  ],\n"
+    '  "percepciones": [\n'
+    '    {"tipo": "<IIBB|IVA|Ganancias|otro>", "jurisdiccion": "<provincia o vacío>",\n'
+    '     "alicuota": <número en %>, "importe": <número>}\n'
+    "  ],\n"
     '  "confianza": <0.0-1.0>,\n'
     '  "notas": "<dudas o renglones ilegibles>"\n'
     "}\n"
@@ -42,6 +46,10 @@ EXTRACTION_SYSTEM = (
     "'descuento' es el % de descuento si el PDF lo expresa en porcentaje; si el "
     "descuento figura como un monto en pesos, dejá 'descuento' en 0 y asegurate de "
     "completar 'importe' (el sistema calcula el % desde importe). "
+    "'percepciones': listá SOLO las percepciones que figuren en el PDF (renglones "
+    "tipo 'Percepcion IIBB <provincia> X%', 'Percepcion IVA', 'Percepcion Ganancias'), "
+    "con su alícuota (%) y su monto. NO incluyas el IVA acá (el IVA va por producto). "
+    "Si no hay percepciones, dejá la lista vacía. "
     "'confianza' baja si el PDF está borroso o ambiguo."
 )
 

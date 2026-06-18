@@ -142,6 +142,26 @@ class TestPoIaImport(TransactionCase):
         self.assertEqual(wiz._discount_pct(100, 2, 999, 0), 0)
 
     # ------------------------------------------------------------------
+    # Percepciones (mapeo a impuesto nativo de compra)
+    # ------------------------------------------------------------------
+    def test_perception_mapping(self):
+        tax = self.env["account.tax"].create({
+            "name": "P. IIBB MZA 3%", "type_tax_use": "purchase",
+            "amount_type": "percent", "amount": 3.0})
+        wiz = self._new_wizard()
+        cmds = wiz._build_perceptions([
+            {"tipo": "IIBB", "jurisdiccion": "Mendoza", "alicuota": 3.0, "importe": 203701.30}])
+        self.assertEqual(len(cmds), 1)
+        self.assertEqual(cmds[0][2]["tax_id"], tax.id)
+        self.assertAlmostEqual(cmds[0][2]["importe"], 203701.30, 2)
+
+    def test_perception_unmatched(self):
+        wiz = self._new_wizard()
+        cmds = wiz._build_perceptions([
+            {"tipo": "IIBB", "jurisdiccion": "Neuquén", "alicuota": 7.77, "importe": 100.0}])
+        self.assertFalse(cmds[0][2]["tax_id"])  # sin tax que matchee → no inventa
+
+    # ------------------------------------------------------------------
     # Flujo completo
     # ------------------------------------------------------------------
     def test_create_po_forces_price_and_seeds_supplierinfo(self):

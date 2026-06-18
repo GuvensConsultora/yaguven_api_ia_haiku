@@ -44,6 +44,8 @@ class PoIaImportWizard(models.TransientModel):
     currency_id = fields.Many2one("res.currency", string="Moneda")
 
     line_ids = fields.One2many("po.ia.import.wizard.line", "wizard_id", string="Líneas")
+    percepcion_ids = fields.One2many(
+        "po.ia.import.wizard.perception", "wizard_id", string="Percepciones")
 
     confidence = fields.Float(string="Confianza IA", readonly=True)
     notes = fields.Text(string="Notas de la IA", readonly=True)
@@ -83,9 +85,62 @@ class PoIaImportWizard(models.TransientModel):
             "usage_info": "in=%s out=%s tokens" % (
                 usage.get("input_tokens", "?"), usage.get("output_tokens", "?")),
             "line_ids": [(5, 0, 0)] + self._build_lines(partner, data.get("lineas") or []),
+            "percepcion_ids": [(5, 0, 0)] + self._build_perceptions(data.get("percepciones") or []),
         }
         self.write(vals)
         return self._reopen()
+
+    def _build_perceptions(self, percepciones):
+        company = self.env.company
+        cmds = []
+        for pc in percepciones:
+            alicuota = pc.get("alicuota") or 0.0
+            tipo = (pc.get("tipo") or "").strip()
+            juris = (pc.get("jurisdiccion") or "").strip()
+            tax = self._find_perception_tax(company, tipo, juris, alicuota)
+            cmds.append((0, 0, {
+                "tipo": tipo,
+                "jurisdiccion": juris,
+                "alicuota": alicuota,
+                "importe": pc.get("importe") or 0.0,
+                "tax_id": tax.id if tax else False,
+            }))
+        return cmds
+
+    @staticmethod
+    def _juris_tokens(jurisdiccion):
+        """Tokens de nombre de impuesto para una jurisdicción (Mendoza -> MZA/MENDOZA)."""
+        j = (jurisdiccion or "").strip().upper()
+        alias = {
+            "MENDOZA": ["MZA", "MENDOZA"],
+            "BUENOS AIRES": ["PBA", "BUENOS AIRES"],
+            "CABA": ["CABA"], "CIUDAD DE BUENOS AIRES": ["CABA"],
+            "CORDOBA": ["CBA", "CORDOBA"], "CÓRDOBA": ["CBA", "CORDOBA"],
+            "SANTA FE": ["SF", "SANTA FE"],
+        }
+        return alias.get(j, [j] if j else [])
+
+    def _find_perception_tax(self, company, tipo, jurisdiccion, alicuota):
+        """Busca el impuesto de compra (percepción) nativo que coincide en alícuota
+        y jurisdicción. Devuelve account.tax vacío si no hay match inequívoco."""
+        Tax = self.env["account.tax"]
+        cands = Tax.search([
+            ("type_tax_use", "=", "purchase"),
+            ("company_id", "=", company.id),
+            ("amount_type", "=", "percent"),
+            ("amount", ">=", alicuota - 0.01),
+            ("amount", "<=", alicuota + 0.01),
+        ])
+        if not cands:
+            return Tax.browse()
+        tokens = self._juris_tokens(jurisdiccion)
+        if tokens:
+            for t in cands:
+                name = (t.name or "").upper()
+                if any(tok in name for tok in tokens):
+                    return t
+        # Sin jurisdicción que matchee: solo si hay una única candidata por alícuota.
+        return cands[0] if len(cands) == 1 else Tax.browse()
 
     def _build_lines(self, partner, lineas):
         cmds = []
@@ -245,6 +300,8 @@ class PoIaImportWizard(models.TransientModel):
         # Crear líneas solo con product_id + cantidad; el price_unit se fuerza
         # después (campo computado-almacenado que Odoo pisa al crear — C.10/C.11).
         has_discount = "discount" in self.env["purchase.order.line"]._fields
+        # Percepciones nativas a sumar a cada línea (además del IVA del producto).
+        perc_taxes = self.percepcion_ids.mapped("tax_id")
         for wl in self.line_ids:
             line = self.env["purchase.order.line"].create({
                 "order_id": order.id,
@@ -256,6 +313,9 @@ class PoIaImportWizard(models.TransientModel):
                 write_vals["name"] = wl.descripcion
             if has_discount and wl.descuento:
                 write_vals["discount"] = wl.descuento
+            if perc_taxes:
+                # (4, id) suma la percepción sin pisar el IVA que trae el producto.
+                write_vals["taxes_id"] = [(4, t.id) for t in perc_taxes]
             line.write(write_vals)
             self._seed_supplierinfo(wl)
 
@@ -389,3 +449,20 @@ class PoIaImportWizardLine(models.TransientModel):
                 "default_src_descripcion": self.descripcion or "",
             },
         }
+
+
+class PoIaImportWizardPerception(models.TransientModel):
+    _name = "po.ia.import.wizard.perception"
+    _description = "Percepción detectada en el PDF de compra (IA)"
+
+    wizard_id = fields.Many2one("po.ia.import.wizard", required=True, ondelete="cascade")
+    tipo = fields.Char(string="Tipo")
+    jurisdiccion = fields.Char(string="Jurisdicción")
+    alicuota = fields.Float(string="Alícuota %")
+    importe = fields.Float(string="Importe (PDF)", readonly=True)
+    tax_id = fields.Many2one(
+        "account.tax", string="Impuesto (percepción)",
+        domain="[('type_tax_use','=','purchase')]",
+        help="Impuesto nativo de compra que se agregará a las líneas del presupuesto. "
+             "Si quedó vacío, no se encontró uno que coincida: elegilo a mano o dejá la "
+             "fila sin impuesto (no se cargará esa percepción).")
