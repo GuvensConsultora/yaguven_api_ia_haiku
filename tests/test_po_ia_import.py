@@ -237,7 +237,6 @@ class TestPoIaImport(TransactionCase):
         order = self.env["purchase.order"].browse(action["res_id"])
         src = self.env["po.ia.import.source"].search([("order_id", "=", order.id)])
         self.assertTrue(src, "Debe quedar el registro de origen IA")
-        self.assertTrue(order.ia_haiku_origin)
         self.assertEqual(src.invoice_number, "PRES-001")   # = referencia del PDF
         self.assertEqual(str(src.invoice_date), "2026-06-17")  # = fecha del PDF
 

@@ -21,25 +21,13 @@ class PoIaImportSource(models.Model):
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
 
-    # Computado no almacenado (sin columna): solo para la lógica de la vista.
-    ia_haiku_origin = fields.Boolean(
-        string="Cargada por IA (Haiku)", compute="_compute_ia_haiku_origin")
-
-    def _compute_ia_haiku_origin(self):
-        srcs = self.env["po.ia.import.source"].search([("order_id", "in", self.ids)])
-        ids_with_src = set(srcs.mapped("order_id").ids)
-        for po in self:
-            po.ia_haiku_origin = po.id in ids_with_src
-
     def action_ia_create_invoice(self):
-        """Crea la factura de proveedor para una OC cargada por IA, con las
-        CANTIDADES COMPLETAS de la orden (no las recibidas) y la fecha/nro de la
-        factura del proveedor. Para OC no-IA, cae al flujo nativo."""
+        """Crea la factura de proveedor para cualquier OC con las CANTIDADES
+        COMPLETAS de la orden (no las recibidas). Si la OC fue cargada por IA,
+        además vuelca la fecha y el nro de la factura del proveedor."""
         self.ensure_one()
         source = self.env["po.ia.import.source"].search(
             [("order_id", "=", self.id)], limit=1)
-        if not source:
-            return self.action_create_invoice()
 
         move_vals = self._prepare_invoice()
         if source.invoice_date:
