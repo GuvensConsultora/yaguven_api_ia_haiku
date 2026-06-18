@@ -126,6 +126,22 @@ class TestPoIaImport(TransactionCase):
         self.assertEqual(status, "none")
 
     # ------------------------------------------------------------------
+    # Descuento (importe → %)
+    # ------------------------------------------------------------------
+    def test_discount_from_importe(self):
+        wiz = self._new_wizard()
+        # Michelin fila 1: 449241.58 × 8 = 3.593.932,64; importe 2.443.874,20 → 32%.
+        pct = wiz._discount_pct(449241.58, 8, 2443874.20, 0)
+        self.assertAlmostEqual(pct, 32.0, 1)
+
+    def test_discount_fallback_and_incoherent(self):
+        wiz = self._new_wizard()
+        # Sin importe → usa el % de la IA si es válido.
+        self.assertEqual(wiz._discount_pct(100, 2, 0, 15), 15)
+        # importe >= bruto (incoherente) → ignora importe, cae al fallback (0).
+        self.assertEqual(wiz._discount_pct(100, 2, 999, 0), 0)
+
+    # ------------------------------------------------------------------
     # Flujo completo
     # ------------------------------------------------------------------
     def test_create_po_forces_price_and_seeds_supplierinfo(self):

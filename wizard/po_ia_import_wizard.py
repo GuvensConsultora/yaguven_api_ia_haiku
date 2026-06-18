@@ -90,17 +90,37 @@ class PoIaImportWizard(models.TransientModel):
         for ln in lineas:
             codigo = (ln.get("codigo") or "").strip()
             desc = (ln.get("descripcion") or "").strip()
+            cantidad = ln.get("cantidad") or 0.0
+            precio_unit = ln.get("precio_unit") or 0.0
+            importe = ln.get("importe") or 0.0
+            descuento = self._discount_pct(precio_unit, cantidad, importe, ln.get("descuento") or 0.0)
             product, status = self._match_product(partner, codigo, desc, code_index=code_index)
             cmds.append((0, 0, {
                 "codigo": codigo,
                 "descripcion": desc,
-                "cantidad": ln.get("cantidad") or 0.0,
-                "precio_unit": ln.get("precio_unit") or 0.0,
-                "descuento": ln.get("descuento") or 0.0,
+                "cantidad": cantidad,
+                "precio_unit": precio_unit,
+                "descuento": descuento,
+                "importe": importe,
                 "product_id": product.id if product else False,
                 "match_status": status,
             }))
         return cmds
+
+    @staticmethod
+    def _discount_pct(precio_unit, cantidad, importe, descuento_ia):
+        """Devuelve el % de descuento de la línea.
+
+        Si hay `importe` (total con descuento, sin IVA) y un bruto > 0, calcula el %
+        exacto = (1 - importe/bruto)*100 — banca facturas que dan el descuento como
+        monto (caso Michelin). Si no, usa el `descuento` de la IA cuando es un % válido.
+        """
+        bruto = (precio_unit or 0.0) * (cantidad or 0.0)
+        if importe and bruto and 0 < importe < bruto:
+            return round((1.0 - importe / bruto) * 100.0, 4)
+        if 0.0 <= descuento_ia <= 100.0:
+            return descuento_ia
+        return 0.0
 
     # ------------------------------------------------------------------
     # Match contra el catálogo
@@ -309,6 +329,10 @@ class PoIaImportWizardLine(models.TransientModel):
     cantidad = fields.Float(string="Cantidad", default=1.0)
     precio_unit = fields.Float(string="Precio unit.")
     descuento = fields.Float(string="Desc. %")
+    importe = fields.Float(
+        string="Importe (PDF)", readonly=True,
+        help="Total de la línea según el PDF (con descuento, sin IVA). Referencia "
+             "para verificar que la carga coincide con la factura.")
     product_id = fields.Many2one(
         "product.product", string="Producto",
         domain="[('purchase_ok','=',True)]")

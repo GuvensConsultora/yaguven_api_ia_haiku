@@ -47,6 +47,7 @@
                         <field name="cantidad"/>
                         <field name="precio_unit"/>
                         <field name="descuento"/>
+                        <field name="importe" readonly="1"/>
                         <field name="product_id"
                                options="{'no_create': True}"/>
                         <field name="match_status" widget="badge"

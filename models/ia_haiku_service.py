@@ -27,14 +27,22 @@ EXTRACTION_SYSTEM = (
     '  "moneda": "<ARS|USD>",\n'
     '  "lineas": [\n'
     '    {"codigo": "<código del proveedor>", "descripcion": "<str>",\n'
-    '     "cantidad": <número>, "precio_unit": <número>, "descuento": <número 0-100>}\n'
+    '     "cantidad": <número>, "precio_unit": <número>, "descuento": <número 0-100>,\n'
+    '     "importe": <número>}\n'
     "  ],\n"
     '  "confianza": <0.0-1.0>,\n'
     '  "notas": "<dudas o renglones ilegibles>"\n'
     "}\n"
     "Reglas: 'codigo' es el código tal cual lo escribe el proveedor (NO inventes). "
-    "Si un dato no está, dejalo vacío o 0. 'precio_unit' sin IVA si se distingue; "
-    "si no, el que figure. 'confianza' baja si el PDF está borroso o ambiguo."
+    "Si un dato no está, dejalo vacío o 0. "
+    "'precio_unit' es el unitario SIN descuento (precio de lista por unidad), sin IVA "
+    "si se distingue; si no, el que figure. "
+    "'importe' es el TOTAL de la línea (cantidad × precio con descuento ya aplicado), "
+    "sin IVA — copialo tal cual figura en la columna Importe/Total del renglón. "
+    "'descuento' es el % de descuento si el PDF lo expresa en porcentaje; si el "
+    "descuento figura como un monto en pesos, dejá 'descuento' en 0 y asegurate de "
+    "completar 'importe' (el sistema calcula el % desde importe). "
+    "'confianza' baja si el PDF está borroso o ambiguo."
 )
 
 
