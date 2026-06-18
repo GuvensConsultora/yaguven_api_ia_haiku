@@ -9,15 +9,13 @@ _logger = logging.getLogger(__name__)
 class PoIaProductCreateWizard(models.TransientModel):
     """Sub-wizard lanzado desde una línea sin match del wizard de carga por IA.
 
-    Permite, sin salir del flujo:
-      - modo 'variant': sobre una plantilla (medida) existente, fijar un valor por
-        atributo (Marca, Modelo, ...) eligiendo uno existente o escribiendo uno nuevo,
-        y generar la variante (los atributos del catálogo son `create_variant=dynamic`).
-      - modo 'new_tmpl': crear una plantilla nueva (medida que aún no existe) y, sobre
-        ella, fijar los valores de atributo y generar la variante.
+    Flujo mínimo, sin salir de la carga: elegís la MEDIDA (plantilla; existente o
+    una nueva tipeándola en el m2o), elegís los ATRIBUTOS y sus VALORES en el momento
+    (Marca, Modelo, ... cada uno con un valor existente o uno nuevo) y la REFERENCIA.
+    Se genera la variante (los atributos del catálogo son `create_variant=dynamic`).
 
-    Dedupe (B.7): plantilla por nombre, valor de atributo por (atributo, nombre),
-    variante por combinación. Si ya existen, se reutilizan.
+    Dedupe (B.7): valor de atributo por (atributo, nombre) y variante por combinación;
+    si ya existen, se reutilizan.
     """
 
     _name = "po.ia.product.create.wizard"
@@ -26,11 +24,6 @@ class PoIaProductCreateWizard(models.TransientModel):
     line_id = fields.Many2one(
         "po.ia.import.wizard.line", string="Línea de origen",
         required=True, ondelete="cascade")
-
-    mode = fields.Selection(
-        [("variant", "Variante de una medida existente"),
-         ("new_tmpl", "Medida nueva")],
-        string="Qué crear", default="variant", required=True)
 
     # Datos traídos de la línea, para referencia.
     src_codigo = fields.Char(string="Código (PDF)", readonly=True)
@@ -42,39 +35,24 @@ class PoIaProductCreateWizard(models.TransientModel):
         help="Código interno (default_code) que tendrá el producto/variante creado. "
              "Se precarga con el código del PDF; podés editarlo o dejarlo en blanco.")
 
-    # Modo 'variant': plantilla (medida) existente.
+    # Medida = plantilla. Elegís una existente o tipeás una nueva (se crea sola).
     product_tmpl_id = fields.Many2one(
-        "product.template", string="Medida (plantilla)",
-        domain="[('attribute_line_ids','!=',False)]")
-
-    # Modo 'new_tmpl': datos de la plantilla nueva.
-    new_tmpl_name = fields.Char(string="Nombre de la medida")
-    categ_id = fields.Many2one(
-        "product.category", string="Categoría",
-        default=lambda self: self._default_categ())
+        "product.template", string="Medida")
 
     attr_line_ids = fields.One2many(
         "po.ia.product.create.attr", "create_wizard_id", string="Atributos")
 
     # ------------------------------------------------------------------
-    def _default_categ(self):
-        categ = self.env.ref("product.product_category_all", raise_if_not_found=False)
-        return categ or self.env["product.category"].search([], limit=1)
-
-    @api.onchange("mode", "product_tmpl_id")
+    @api.onchange("product_tmpl_id")
     def _onchange_load_attributes(self):
-        """Arma una fila por atributo de la plantilla (o por Marca/Modelo para medida nueva)."""
+        """Si la medida ya tiene atributos, precarga una fila por cada uno (solo a
+        completar el valor). Si es una medida nueva, deja la grilla vacía para que
+        elijas los atributos y valores en el momento."""
         for wiz in self:
             rows = []
-            if wiz.mode == "variant" and wiz.product_tmpl_id:
+            if wiz.product_tmpl_id:
                 for ptal in wiz.product_tmpl_id.attribute_line_ids:
                     rows.append((0, 0, {"attribute_id": ptal.attribute_id.id}))
-            elif wiz.mode == "new_tmpl":
-                for name in ("Marca", "Modelo"):
-                    attr = self.env["product.attribute"].search(
-                        [("name", "=", name)], limit=1)
-                    if attr:
-                        rows.append((0, 0, {"attribute_id": attr.id}))
             wiz.attr_line_ids = [(5, 0, 0)] + rows
 
     # ------------------------------------------------------------------
@@ -85,8 +63,18 @@ class PoIaProductCreateWizard(models.TransientModel):
             lambda r: r.attribute_id or r.value_id or (r.new_value or "").strip())
         if not rows:
             raise UserError(_("Cargá al menos un atributo (Marca, Modelo, ...)."))
+        if not self.product_tmpl_id:
+            raise UserError(_("Elegí una medida (o tipeá una nueva para crearla)."))
 
-        tmpl = self._get_or_create_template()
+        tmpl = self.product_tmpl_id
+        # En un flujo de compras la medida tiene que poder comprarse y stockearse.
+        tmpl_vals = {}
+        if not tmpl.purchase_ok:
+            tmpl_vals["purchase_ok"] = True
+        if "is_storable" in tmpl._fields and not tmpl.is_storable:
+            tmpl_vals["is_storable"] = True
+        if tmpl_vals:
+            tmpl.write(tmpl_vals)
 
         # Resolver cada atributo a su product.template.attribute.value (ptav),
         # creando el valor y/o sumándolo a la línea de atributo si hace falta.
@@ -120,30 +108,6 @@ class PoIaProductCreateWizard(models.TransientModel):
         return self._return_to_import_wizard()
 
     # ------------------------------------------------------------------
-    def _get_or_create_template(self):
-        if self.mode == "variant":
-            if not self.product_tmpl_id:
-                raise UserError(_("Elegí la medida (plantilla) sobre la que crear la variante."))
-            return self.product_tmpl_id
-        # Medida nueva.
-        name = (self.new_tmpl_name or "").strip()
-        if not name:
-            raise UserError(_("Indicá el nombre de la medida nueva."))
-        existing = self.env["product.template"].search([("name", "=", name)], limit=1)
-        if existing:
-            # Dedupe: la medida ya existía; la reutilizamos.
-            self.product_tmpl_id = existing
-            return existing
-        vals = {
-            "name": name,
-            "categ_id": self.categ_id.id or self._default_categ().id,
-            "purchase_ok": True,
-            "sale_ok": True,
-        }
-        if "is_storable" in self.env["product.template"]._fields:
-            vals["is_storable"] = True
-        return self.env["product.template"].create(vals)
-
     def _resolve_attribute_value(self, tmpl, row):
         """Devuelve el product.template.attribute.value de `row` sobre `tmpl`,
         creando el valor de atributo y/o agregándolo a la línea de atributo si falta."""

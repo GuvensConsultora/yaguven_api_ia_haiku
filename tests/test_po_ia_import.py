@@ -248,7 +248,7 @@ class TestPoIaProductCreate(TransactionCase):
         lo suma a la plantilla y genera la variante, asignándola a la línea."""
         line = self._line(codigo="NEW-CODE-1", desc="225/75 R18 Pirelli Bis")
         wiz = self.CreateWiz.create({
-            "line_id": line.id, "mode": "variant",
+            "line_id": line.id,
             "product_tmpl_id": self.medida.id,
             "ref_code": "NEW-CODE-1",
             "attr_line_ids": [
@@ -273,7 +273,7 @@ class TestPoIaProductCreate(TransactionCase):
         def apply():
             line = self._line(desc="x")
             wiz = self.CreateWiz.create({
-                "line_id": line.id, "mode": "variant",
+                "line_id": line.id,
                 "product_tmpl_id": self.medida.id,
                 "attr_line_ids": [
                     (0, 0, {"attribute_id": self.marca.id, "value_id": self.pirelli.id}),
@@ -286,20 +286,21 @@ class TestPoIaProductCreate(TransactionCase):
         v2 = apply()
         self.assertEqual(v1, v2)
 
-    def test_new_template_medida(self):
-        """Medida nueva: crea la plantilla y genera la variante con sus atributos."""
+    def test_medida_nueva_sin_atributos_previos(self):
+        """Medida creada al vuelo (plantilla sin atributos): se eligen atributos y
+        valores en el momento y se genera la variante."""
+        nueva = self.Tmpl.create({"name": "300/80 R22"})  # como el quick-create del m2o
         line = self._line(desc="medida nueva")
         wiz = self.CreateWiz.create({
-            "line_id": line.id, "mode": "new_tmpl",
-            "new_tmpl_name": "300/80 R22",
+            "line_id": line.id,
+            "product_tmpl_id": nueva.id,
             "attr_line_ids": [
                 (0, 0, {"attribute_id": self.marca.id, "value_id": self.pirelli.id}),
                 (0, 0, {"attribute_id": self.modelo.id, "new_value": "Nuevo Modelo"}),
             ],
         })
         wiz.action_apply()
-        tmpl = self.Tmpl.search([("name", "=", "300/80 R22")])
-        self.assertEqual(len(tmpl), 1)
         self.assertTrue(line.product_id)
-        self.assertEqual(line.product_id.product_tmpl_id, tmpl)
+        self.assertEqual(line.product_id.product_tmpl_id, nueva)
         self.assertEqual(line.match_status, "created")
+        self.assertTrue(nueva.purchase_ok)

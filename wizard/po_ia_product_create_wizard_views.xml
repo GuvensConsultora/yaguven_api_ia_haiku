@@ -12,20 +12,8 @@
                 </group>
                 <field name="line_id" invisible="1"/>
                 <group col="2">
-                    <field name="mode" widget="radio"/>
-                </group>
-                <group col="2">
-                    <field name="product_tmpl_id"
-                           invisible="mode != 'variant'"
-                           required="mode == 'variant'"
-                           options="{'no_create': True}"/>
-                    <field name="new_tmpl_name"
-                           invisible="mode != 'new_tmpl'"
-                           required="mode == 'new_tmpl'"/>
-                    <field name="categ_id"
-                           invisible="mode != 'new_tmpl'"
-                           required="mode == 'new_tmpl'"
-                           options="{'no_create': True}"/>
+                    <field name="product_tmpl_id" required="1"
+                           placeholder="Elegí una medida o escribí una nueva..."/>
                 </group>
 
                 <separator string="Atributos (elegí un valor o escribí uno nuevo)"/>
