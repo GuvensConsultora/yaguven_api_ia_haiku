@@ -1,8 +1,11 @@
 import logging
 import re
 
+from markupsafe import Markup
+
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
+from odoo.tools.misc import html_escape
 
 _logger = logging.getLogger(__name__)
 
@@ -256,6 +259,8 @@ class PoIaImportWizard(models.TransientModel):
             line.write(write_vals)
             self._seed_supplierinfo(wl)
 
+        self._attach_source_pdf(order)
+
         return {
             "type": "ir.actions.act_window",
             "res_model": "purchase.order",
@@ -263,6 +268,30 @@ class PoIaImportWizard(models.TransientModel):
             "view_mode": "form",
             "target": "current",
         }
+
+    def _attach_source_pdf(self, order):
+        """Adjunta el PDF origen (la factura/presupuesto del proveedor del que se
+        tomaron los datos) al PO y lo deja en el chatter (C.4)."""
+        if not self.pdf_file:
+            return
+        fname = self.pdf_filename or "presupuesto_proveedor.pdf"
+        attachment = self.env["ir.attachment"].create({
+            "name": fname,
+            "datas": self.pdf_file,
+            "res_model": "purchase.order",
+            "res_id": order.id,
+            "mimetype": "application/pdf",
+        })
+        body = Markup(
+            "<p>Presupuesto cargado por IA (Claude Haiku) a partir del archivo "
+            "<strong>%s</strong> del proveedor (adjunto).</p>"
+        ) % html_escape(fname)
+        order.message_post(
+            body=body,
+            attachment_ids=[attachment.id],
+            message_type="comment",
+            subtype_xmlid="mail.mt_note",
+        )
 
     def _check_duplicate(self):
         if self.force_create or not self.partner_ref:

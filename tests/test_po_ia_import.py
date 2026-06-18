@@ -191,6 +191,22 @@ class TestPoIaImport(TransactionCase):
         self.assertEqual(l2.product_id, self.prod_manual)
         self.assertEqual(l2.match_status, "auto_supplier")
 
+    def test_create_po_attaches_source_pdf(self):
+        wiz = self._new_wizard()
+        fake = self._fake_extraction([
+            {"codigo": "DC001", "descripcion": "Cubierta DC Test",
+             "cantidad": 1, "precio_unit": 100.0, "descuento": 0}])
+        self._run_extract(wiz, fake)
+        action = wiz.action_create_po()
+        order = self.env["purchase.order"].browse(action["res_id"])
+        att = self.env["ir.attachment"].search([
+            ("res_model", "=", "purchase.order"), ("res_id", "=", order.id)])
+        self.assertTrue(att, "El PDF origen debe quedar adjunto al PO")
+        self.assertEqual(att[0].name, "test.pdf")
+        self.assertTrue(
+            order.message_ids.filtered(lambda m: "Haiku" in (m.body or "")),
+            "Debe haber una nota en el chatter referenciando el archivo origen")
+
     def test_create_blocks_without_partner(self):
         wiz = self._new_wizard()
         fake = self._fake_extraction(
