@@ -173,3 +173,100 @@ class TestPoIaImport(TransactionCase):
         ])
         self.assertEqual(len(si), 1)
         self.assertAlmostEqual(si.price, 80.0, 2)
+
+
+@tagged("post_install", "-at_install")
+class TestPoIaProductCreate(TransactionCase):
+    """Sub-wizard de alta de producto/variante desde el macheo (modelo Camiletti:
+    plantilla = Medida, atributos = Marca/Modelo, variantes dinámicas)."""
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.Attr = cls.env["product.attribute"]
+        cls.AttrVal = cls.env["product.attribute.value"]
+        cls.Tmpl = cls.env["product.template"]
+        cls.CreateWiz = cls.env["po.ia.product.create.wizard"]
+
+        cls.marca = cls.Attr.create({"name": "Marca", "create_variant": "dynamic"})
+        cls.modelo = cls.Attr.create({"name": "Modelo", "create_variant": "dynamic"})
+        cls.pirelli = cls.AttrVal.create({"name": "Pirelli", "attribute_id": cls.marca.id})
+        cls.prince = cls.AttrVal.create({"name": "Prince", "attribute_id": cls.modelo.id})
+
+        # Plantilla (medida) existente con Marca=Pirelli, Modelo=Prince.
+        cls.medida = cls.Tmpl.create({
+            "name": "225/75 R18",
+            "purchase_ok": True,
+            "attribute_line_ids": [
+                (0, 0, {"attribute_id": cls.marca.id, "value_ids": [(6, 0, [cls.pirelli.id])]}),
+                (0, 0, {"attribute_id": cls.modelo.id, "value_ids": [(6, 0, [cls.prince.id])]}),
+            ],
+        })
+
+    def _line(self, codigo="", desc=""):
+        wiz = self.env["po.ia.import.wizard"].create({
+            "pdf_file": "JVBERi0xLjQK", "pdf_filename": "t.pdf"})
+        return self.env["po.ia.import.wizard.line"].create({
+            "wizard_id": wiz.id, "codigo": codigo, "descripcion": desc,
+            "cantidad": 1, "precio_unit": 100.0,
+        })
+
+    def test_variant_with_new_attribute_value(self):
+        """Sobre medida existente, Modelo nuevo 'Bis' → da de alta el valor,
+        lo suma a la plantilla y genera la variante, asignándola a la línea."""
+        line = self._line(codigo="NEW-CODE-1", desc="225/75 R18 Pirelli Bis")
+        wiz = self.CreateWiz.create({
+            "line_id": line.id, "mode": "variant",
+            "product_tmpl_id": self.medida.id,
+            "attr_line_ids": [
+                (0, 0, {"attribute_id": self.marca.id, "value_id": self.pirelli.id}),
+                (0, 0, {"attribute_id": self.modelo.id, "new_value": "Bis"}),
+            ],
+        })
+        wiz.action_apply()
+        # El valor nuevo se creó y quedó en la plantilla.
+        bis = self.AttrVal.search([("attribute_id", "=", self.modelo.id), ("name", "=", "Bis")])
+        self.assertEqual(len(bis), 1)
+        self.assertIn(bis, self.medida.attribute_line_ids.filtered(
+            lambda l: l.attribute_id == self.modelo).value_ids)
+        # La línea quedó con una variante de la medida y estado 'created'.
+        self.assertTrue(line.product_id)
+        self.assertEqual(line.product_id.product_tmpl_id, self.medida)
+        self.assertEqual(line.match_status, "created")
+        self.assertEqual(line.product_id.default_code, "NEW-CODE-1")
+
+    def test_variant_reuses_existing_combination(self):
+        """Misma combinación pedida dos veces → reutiliza la variante (no duplica)."""
+        def apply():
+            line = self._line(desc="x")
+            wiz = self.CreateWiz.create({
+                "line_id": line.id, "mode": "variant",
+                "product_tmpl_id": self.medida.id,
+                "attr_line_ids": [
+                    (0, 0, {"attribute_id": self.marca.id, "value_id": self.pirelli.id}),
+                    (0, 0, {"attribute_id": self.modelo.id, "value_id": self.prince.id}),
+                ],
+            })
+            wiz.action_apply()
+            return line.product_id
+        v1 = apply()
+        v2 = apply()
+        self.assertEqual(v1, v2)
+
+    def test_new_template_medida(self):
+        """Medida nueva: crea la plantilla y genera la variante con sus atributos."""
+        line = self._line(desc="medida nueva")
+        wiz = self.CreateWiz.create({
+            "line_id": line.id, "mode": "new_tmpl",
+            "new_tmpl_name": "300/80 R22",
+            "attr_line_ids": [
+                (0, 0, {"attribute_id": self.marca.id, "value_id": self.pirelli.id}),
+                (0, 0, {"attribute_id": self.modelo.id, "new_value": "Nuevo Modelo"}),
+            ],
+        })
+        wiz.action_apply()
+        tmpl = self.Tmpl.search([("name", "=", "300/80 R22")])
+        self.assertEqual(len(tmpl), 1)
+        self.assertTrue(line.product_id)
+        self.assertEqual(line.product_id.product_tmpl_id, tmpl)
+        self.assertEqual(line.match_status, "created")

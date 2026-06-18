@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="po_ia_product_create_wizard_form" model="ir.ui.view">
+        <field name="name">po.ia.product.create.wizard.form</field>
+        <field name="model">po.ia.product.create.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Crear producto / variante">
+                <group col="2">
+                    <field name="src_descripcion" readonly="1"/>
+                    <field name="src_codigo" readonly="1"/>
+                </group>
+                <field name="line_id" invisible="1"/>
+                <group col="2">
+                    <field name="mode" widget="radio"/>
+                </group>
+                <group col="2">
+                    <field name="product_tmpl_id"
+                           invisible="mode != 'variant'"
+                           required="mode == 'variant'"
+                           options="{'no_create': True}"/>
+                    <field name="new_tmpl_name"
+                           invisible="mode != 'new_tmpl'"
+                           required="mode == 'new_tmpl'"/>
+                    <field name="categ_id"
+                           invisible="mode != 'new_tmpl'"
+                           required="mode == 'new_tmpl'"
+                           options="{'no_create': True}"/>
+                </group>
+
+                <separator string="Atributos (elegí un valor o escribí uno nuevo)"/>
+                <field name="attr_line_ids">
+                    <list editable="bottom">
+                        <field name="attribute_id"
+                               readonly="parent.mode == 'variant'"
+                               options="{'no_create': True}"/>
+                        <field name="value_id"
+                               options="{'no_create': True}"/>
+                        <field name="new_value"/>
+                    </list>
+                </field>
+
+                <footer>
+                    <button name="action_apply" string="Crear y asignar"
+                            type="object" class="btn-primary"/>
+                    <button string="Cancelar" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

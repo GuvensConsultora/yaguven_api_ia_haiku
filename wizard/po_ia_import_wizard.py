@@ -270,5 +270,22 @@ class PoIaImportWizardLine(models.TransientModel):
         ("auto_supplier", "Auto (proveedor)"),
         ("auto_code", "Auto (código)"),
         ("suggested", "Sugerido"),
+        ("created", "Creado"),
         ("none", "Sin match"),
     ], string="Match", default="none")
+
+    def action_open_product_create(self):
+        """Abre el sub-wizard para crear el producto/variante de esta línea."""
+        self.ensure_one()
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Crear producto / variante"),
+            "res_model": "po.ia.product.create.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {
+                "default_line_id": self.id,
+                "default_src_codigo": self.codigo or "",
+                "default_src_descripcion": self.descripcion or "",
+            },
+        }

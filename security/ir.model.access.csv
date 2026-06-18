@@ -1,3 +1,5 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_po_ia_import_wizard_purchase,po.ia.import.wizard purchase user,model_po_ia_import_wizard,purchase.group_purchase_user,1,1,1,1
 access_po_ia_import_wizard_line_purchase,po.ia.import.wizard.line purchase user,model_po_ia_import_wizard_line,purchase.group_purchase_user,1,1,1,1
+access_po_ia_product_create_wizard_purchase,po.ia.product.create.wizard purchase user,model_po_ia_product_create_wizard,purchase.group_purchase_user,1,1,1,1
+access_po_ia_product_create_attr_purchase,po.ia.product.create.attr purchase user,model_po_ia_product_create_attr,purchase.group_purchase_user,1,1,1,1
