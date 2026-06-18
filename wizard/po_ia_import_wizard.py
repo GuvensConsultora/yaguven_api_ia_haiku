@@ -12,6 +12,15 @@ def _norm_digits(value):
     return re.sub(r"\D", "", value or "")
 
 
+def _strip_lead_zeros(value):
+    """Saca los ceros a la izquierda para comparar códigos (000060 == 60).
+
+    No toca ceros internos: '001.01.0129' -> '1.01.0129'. Si el código es todo
+    ceros, devuelve el original (evita clave vacía)."""
+    s = (value or "").strip()
+    return s.lstrip("0") or s
+
+
 class PoIaImportWizard(models.TransientModel):
     _name = "po.ia.import.wizard"
     _description = "Carga de presupuesto de compra desde PDF con IA (Haiku)"
@@ -77,10 +86,11 @@ class PoIaImportWizard(models.TransientModel):
 
     def _build_lines(self, partner, lineas):
         cmds = []
+        code_index = self._build_code_index()
         for ln in lineas:
             codigo = (ln.get("codigo") or "").strip()
             desc = (ln.get("descripcion") or "").strip()
-            product, status = self._match_product(partner, codigo, desc)
+            product, status = self._match_product(partner, codigo, desc, code_index=code_index)
             cmds.append((0, 0, {
                 "codigo": codigo,
                 "descripcion": desc,
@@ -95,8 +105,17 @@ class PoIaImportWizard(models.TransientModel):
     # ------------------------------------------------------------------
     # Match contra el catálogo
     # ------------------------------------------------------------------
-    def _match_product(self, partner, codigo, descripcion):
-        """Orden: supplierinfo del proveedor → default_code propio → nombre ilike.
+    def _build_code_index(self):
+        """Índice {default_code sin ceros a la izquierda: [product ids]} para
+        machear tolerando ceros a la izquierda. Se arma una vez por carga."""
+        index = {}
+        for p in self.env["product.product"].search_read(
+                [("default_code", "!=", False)], ["default_code"]):
+            index.setdefault(_strip_lead_zeros(p["default_code"]), []).append(p["id"])
+        return index
+
+    def _match_product(self, partner, codigo, descripcion, code_index=None):
+        """Orden: supplierinfo → default_code → prefijo "_" → ceros a la izquierda → nombre.
 
         Devuelve (product.product|False, match_status).
         """
@@ -129,6 +148,20 @@ class PoIaImportWizard(models.TransientModel):
                 prods = Product.search([("default_code", "=", pref)], limit=2)
                 if len(prods) == 1:
                     return prods[0], "auto_prefix"
+        # 2.7) ceros a la izquierda: normalizamos el código (y sus prefijos "_")
+        # y comparamos contra el índice de default_code normalizados. Solo si la
+        # versión normalizada da UN único producto (si varios colapsan, no adivinamos).
+        if codigo:
+            if code_index is None:
+                code_index = self._build_code_index()
+            cands = {_strip_lead_zeros(codigo)}
+            if "_" in codigo:
+                cands.add(_strip_lead_zeros(codigo.rsplit("_", 1)[0]))
+                cands.add(_strip_lead_zeros(codigo.split("_", 1)[0]))
+            for cand in cands:
+                hits = code_index.get(cand) if cand else None
+                if hits and len(hits) == 1:
+                    return Product.browse(hits[0]), "auto_code"
         # 3) nombre ilike — match único de alta confianza.
         if descripcion:
             prods = Product.search(

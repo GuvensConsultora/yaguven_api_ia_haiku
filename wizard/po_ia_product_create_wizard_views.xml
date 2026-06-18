@@ -8,6 +8,7 @@
                 <group col="2">
                     <field name="src_descripcion" readonly="1"/>
                     <field name="src_codigo" readonly="1"/>
+                    <field name="ref_code"/>
                 </group>
                 <field name="line_id" invisible="1"/>
                 <group col="2">

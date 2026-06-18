@@ -36,6 +36,12 @@ class PoIaProductCreateWizard(models.TransientModel):
     src_codigo = fields.Char(string="Código (PDF)", readonly=True)
     src_descripcion = fields.Char(string="Descripción (PDF)", readonly=True)
 
+    ref_code = fields.Char(
+        string="Referencia (código interno)",
+        default=lambda self: self.env.context.get("default_src_codigo") or False,
+        help="Código interno (default_code) que tendrá el producto/variante creado. "
+             "Se precarga con el código del PDF; podés editarlo o dejarlo en blanco.")
+
     # Modo 'variant': plantilla (medida) existente.
     product_tmpl_id = fields.Many2one(
         "product.template", string="Medida (plantilla)",
@@ -96,13 +102,15 @@ class PoIaProductCreateWizard(models.TransientModel):
         if not variant:
             raise UserError(_("No se pudo generar la variante con esa combinación."))
 
-        # Código propio si vino del PDF y está libre (dedupe B.7).
-        codigo = (self.src_codigo or "").strip()
-        if codigo and not variant.default_code:
+        # Referencia (default_code) del producto/variante. Editable; dedupe B.7.
+        ref = (self.ref_code or "").strip()
+        if ref and ref != variant.default_code:
             clash = self.env["product.product"].search_count(
-                [("default_code", "=", codigo), ("id", "!=", variant.id)])
-            if not clash:
-                variant.default_code = codigo
+                [("default_code", "=", ref), ("id", "!=", variant.id)])
+            if clash:
+                raise UserError(_(
+                    "Ya existe otro producto con la referencia '%s'. Usá otra o dejala en blanco.") % ref)
+            variant.default_code = ref
 
         # Devolver a la línea de origen.
         self.line_id.write({

@@ -107,6 +107,24 @@ class TestPoIaImport(TransactionCase):
         self.assertFalse(prod)
         self.assertEqual(status, "none")
 
+    def test_match_leading_zeros(self):
+        # default_code con ceros a la izquierda; el PDF trae el código sin ellos.
+        prod = self.Product.create({
+            "name": "Cubierta Z Test", "default_code": "000060", "purchase_ok": True})
+        wiz = self._new_wizard()
+        p, status = wiz._match_product(self.partner, "60", "zzz inexistente")
+        self.assertEqual(p, prod)
+        self.assertEqual(status, "auto_code")
+
+    def test_match_leading_zeros_ambiguous(self):
+        # Dos productos colapsan al mismo código normalizado → no adivina.
+        self.Product.create({"name": "Amb A", "default_code": "0070", "purchase_ok": True})
+        self.Product.create({"name": "Amb B", "default_code": "70", "purchase_ok": True})
+        wiz = self._new_wizard()
+        p, status = wiz._match_product(self.partner, "070", "qqq inexistente www")
+        self.assertFalse(p)
+        self.assertEqual(status, "none")
+
     # ------------------------------------------------------------------
     # Flujo completo
     # ------------------------------------------------------------------
@@ -232,6 +250,7 @@ class TestPoIaProductCreate(TransactionCase):
         wiz = self.CreateWiz.create({
             "line_id": line.id, "mode": "variant",
             "product_tmpl_id": self.medida.id,
+            "ref_code": "NEW-CODE-1",
             "attr_line_ids": [
                 (0, 0, {"attribute_id": self.marca.id, "value_id": self.pirelli.id}),
                 (0, 0, {"attribute_id": self.modelo.id, "new_value": "Bis"}),
