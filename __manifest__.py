@@ -1,6 +1,6 @@
 {
     "name": "Yagüven — Carga de presupuestos de compra con IA (Haiku)",
-    "version": "19.0.1.7.1",
+    "version": "19.0.1.8.0",
     "author": "Yagüven C.G.",
     "website": "https://yaguven.com",
     "category": "Purchases",
@@ -42,6 +42,7 @@ Diseño
     "data": [
         "security/ir.model.access.csv",
         "views/res_config_settings_views.xml",
+        "views/purchase_order_views.xml",
         "wizard/po_ia_import_wizard_views.xml",
         "wizard/po_ia_product_create_wizard_views.xml",
     ],

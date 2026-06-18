@@ -34,6 +34,8 @@ EXTRACTION_SYSTEM = (
     '    {"tipo": "<IIBB|IVA|Ganancias|otro>", "jurisdiccion": "<provincia o vacío>",\n'
     '     "alicuota": <número en %>, "importe": <número>}\n'
     "  ],\n"
+    '  "totales": {"neto": <número>, "iva": <número>, "percepciones": <número>,\n'
+    '              "total": <número>},\n'
     '  "confianza": <0.0-1.0>,\n'
     '  "notas": "<dudas o renglones ilegibles>"\n'
     "}\n"
@@ -50,6 +52,9 @@ EXTRACTION_SYSTEM = (
     "tipo 'Percepcion IIBB <provincia> X%', 'Percepcion IVA', 'Percepcion Ganancias'), "
     "con su alícuota (%) y su monto. NO incluyas el IVA acá (el IVA va por producto). "
     "Si no hay percepciones, dejá la lista vacía. "
+    "'totales' son los totales del comprobante tal como figuran al pie: 'neto' "
+    "(importe gravado/subtotal sin IVA), 'iva' (total de IVA), 'percepciones' (suma "
+    "de percepciones) y 'total' (importe final). "
     "'confianza' baja si el PDF está borroso o ambiguo."
 )
 

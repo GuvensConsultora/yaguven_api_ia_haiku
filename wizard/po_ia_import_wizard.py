@@ -47,6 +47,12 @@ class PoIaImportWizard(models.TransientModel):
     percepcion_ids = fields.One2many(
         "po.ia.import.wizard.perception", "wizard_id", string="Percepciones")
 
+    # Totales del comprobante según el PDF (para comparar contra el PO en el chatter).
+    pdf_neto = fields.Float(string="Neto (PDF)", readonly=True)
+    pdf_iva = fields.Float(string="IVA (PDF)", readonly=True)
+    pdf_perc = fields.Float(string="Percepciones (PDF)", readonly=True)
+    pdf_total = fields.Float(string="Total (PDF)", readonly=True)
+
     confidence = fields.Float(string="Confianza IA", readonly=True)
     notes = fields.Text(string="Notas de la IA", readonly=True)
     usage_info = fields.Char(string="Consumo", readonly=True)
@@ -72,8 +78,13 @@ class PoIaImportWizard(models.TransientModel):
         partner = self._find_partner(cuit)
 
         usage = data.get("_usage") or {}
+        tot = data.get("totales") or {}
         vals = {
             "state": "review",
+            "pdf_neto": tot.get("neto") or 0.0,
+            "pdf_iva": tot.get("iva") or 0.0,
+            "pdf_perc": tot.get("percepciones") or 0.0,
+            "pdf_total": tot.get("total") or 0.0,
             "detected_cuit": prov.get("cuit") or "",
             "detected_name": prov.get("razon_social") or "",
             "partner_id": partner.id if partner else False,
@@ -331,27 +342,65 @@ class PoIaImportWizard(models.TransientModel):
 
     def _attach_source_pdf(self, order):
         """Adjunta el PDF origen (la factura/presupuesto del proveedor del que se
-        tomaron los datos) al PO y lo deja en el chatter (C.4)."""
-        if not self.pdf_file:
-            return
+        tomaron los datos) al PO, agrega una comparación de totales Factura vs
+        Presupuesto y lo deja todo en el chatter (C.4)."""
+        attachment_ids = []
         fname = self.pdf_filename or "presupuesto_proveedor.pdf"
-        attachment = self.env["ir.attachment"].create({
-            "name": fname,
-            "datas": self.pdf_file,
-            "res_model": "purchase.order",
-            "res_id": order.id,
-            "mimetype": "application/pdf",
-        })
+        if self.pdf_file:
+            att = self.env["ir.attachment"].create({
+                "name": fname,
+                "datas": self.pdf_file,
+                "res_model": "purchase.order",
+                "res_id": order.id,
+                "mimetype": "application/pdf",
+            })
+            attachment_ids = [att.id]
+
         body = Markup(
             "<p>Presupuesto cargado por IA (Claude Haiku) a partir del archivo "
-            "<strong>%s</strong> del proveedor (adjunto).</p>"
-        ) % html_escape(fname)
+            "<strong>%s</strong> del proveedor%s.</p>"
+        ) % (html_escape(fname), Markup(" (adjunto)") if attachment_ids else Markup(""))
+        body += self._totales_comparison_html(order)
+
         order.message_post(
             body=body,
-            attachment_ids=[attachment.id],
+            attachment_ids=attachment_ids,
             message_type="comment",
             subtype_xmlid="mail.mt_note",
         )
+
+    def _totales_comparison_html(self, order):
+        """Tabla HTML comparando los totales del PDF contra los del presupuesto."""
+        if not (self.pdf_neto or self.pdf_iva or self.pdf_perc or self.pdf_total):
+            return Markup("")
+        cur = order.currency_id or self.env.company.currency_id
+
+        def fmt(v):
+            return html_escape("{:,.2f}".format(v or 0.0))
+
+        rows = [
+            ("Neto gravado", self.pdf_neto, order.amount_untaxed),
+            ("Impuestos (IVA + percep.)", (self.pdf_iva or 0.0) + (self.pdf_perc or 0.0), order.amount_tax),
+            ("Total", self.pdf_total, order.amount_total),
+        ]
+        trs = Markup("")
+        for label, pdf_v, po_v in rows:
+            diff = (po_v or 0.0) - (pdf_v or 0.0)
+            ok = abs(diff) <= 1.0
+            trs += Markup(
+                "<tr><td>%s</td><td style='text-align:right'>%s</td>"
+                "<td style='text-align:right'>%s</td>"
+                "<td style='text-align:right'>%s %s</td></tr>"
+            ) % (html_escape(label), fmt(pdf_v), fmt(po_v), fmt(diff),
+                 Markup("✓") if ok else Markup("⚠"))
+        return Markup(
+            "<p><strong>Comparación de totales (%s)</strong></p>"
+            "<table class='table table-sm o_main_table'>"
+            "<thead><tr><th>Concepto</th><th style='text-align:right'>Factura (PDF)</th>"
+            "<th style='text-align:right'>Presupuesto</th>"
+            "<th style='text-align:right'>Δ</th></tr></thead>"
+            "<tbody>%s</tbody></table>"
+        ) % (html_escape(cur.name or ""), trs)
 
     def _check_duplicate(self):
         if self.force_create or not self.partner_ref:

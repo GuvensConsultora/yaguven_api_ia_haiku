@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Panel de previsualización del adjunto (la factura del proveedor) al lado
+         del presupuesto, igual que en las facturas (account.move). -->
+    <record id="purchase_order_form_attachment_preview" model="ir.ui.view">
+        <field name="name">purchase.order.form.attachment.preview.ia.haiku</field>
+        <field name="model">purchase.order</field>
+        <field name="inherit_id" ref="purchase.purchase_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet" position="after">
+                <div class="o_attachment_preview"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
