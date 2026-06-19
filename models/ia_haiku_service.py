@@ -22,6 +22,7 @@ EXTRACTION_SYSTEM = (
     "válido, sin texto antes ni después, sin ```. Esquema exacto:\n"
     "{\n"
     '  "proveedor": {"cuit": "<solo dígitos o vacío>", "razon_social": "<str>"},\n'
+    '  "comprador": {"cuit": "<solo dígitos o vacío>", "razon_social": "<str>"},\n'
     '  "referencia": "<nro de presupuesto/oferta del proveedor o vacío>",\n'
     '  "fecha": "<YYYY-MM-DD o vacío>",\n'
     '  "moneda": "<ARS|USD>",\n'
@@ -39,7 +40,10 @@ EXTRACTION_SYSTEM = (
     '  "confianza": <0.0-1.0>,\n'
     '  "notas": "<dudas o renglones ilegibles>"\n'
     "}\n"
-    "Reglas: 'codigo' es el código tal cual lo escribe el proveedor (NO inventes). "
+    "Reglas: 'proveedor' es quien EMITE la factura (vendedor); 'comprador' es a quién "
+    "está dirigida (el cliente/destinatario, normalmente nosotros) — su CUIT suele "
+    "figurar como 'Nro. C.U.I.T.' del cliente. "
+    "'codigo' es el código tal cual lo escribe el proveedor (NO inventes). "
     "Si un dato no está, dejalo vacío o 0. "
     "'precio_unit' es el unitario SIN descuento (precio de lista por unidad), sin IVA "
     "si se distingue; si no, el que figure. "

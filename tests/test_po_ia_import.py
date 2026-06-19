@@ -240,6 +240,29 @@ class TestPoIaImport(TransactionCase):
         self.assertEqual(src.invoice_number, "PRES-001")   # = referencia del PDF
         self.assertEqual(str(src.invoice_date), "2026-06-17")  # = fecha del PDF
 
+    def test_blocks_on_company_mismatch(self):
+        other = self.env["res.company"].create({"name": "Otra Compañía Test"})
+        wiz = self._new_wizard()
+        fake = self._fake_extraction([
+            {"codigo": "DC001", "descripcion": "x", "cantidad": 1,
+             "precio_unit": 10, "descuento": 0}])
+        self._run_extract(wiz, fake)
+        wiz.company_dest_id = other  # factura dirigida a otra compañía
+        self.assertTrue(wiz.company_mismatch)
+        with self.assertRaises(UserError):
+            wiz.action_create_po()
+
+    def test_extraction_cache_avoids_second_call(self):
+        from unittest.mock import patch as _patch
+        fake = self._fake_extraction([
+            {"codigo": "DC001", "descripcion": "x", "cantidad": 1,
+             "precio_unit": 10, "descuento": 0}])
+        with _patch.object(type(self.env["ia.haiku.service"]),
+                           "extract_purchase_quote", return_value=fake) as mocked:
+            self._new_wizard().action_extract()
+            self._new_wizard().action_extract()  # mismo PDF → cache hit
+            self.assertEqual(mocked.call_count, 1, "El 2º leído debe salir de la caché")
+
     def test_create_blocks_without_partner(self):
         wiz = self._new_wizard()
         fake = self._fake_extraction(

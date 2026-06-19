@@ -1,3 +1,6 @@
+import base64
+import hashlib
+import json
 import logging
 import re
 
@@ -39,6 +42,17 @@ class PoIaImportWizard(models.TransientModel):
     partner_id = fields.Many2one("res.partner", string="Proveedor", domain="[('is_company','in',[True,False])]")
     detected_cuit = fields.Char(string="CUIT detectado", readonly=True)
     detected_name = fields.Char(string="Razón social detectada", readonly=True)
+    buyer_cuit = fields.Char(string="CUIT comprador (PDF)", readonly=True)
+    company_dest_id = fields.Many2one(
+        "res.company", string="Compañía destino", readonly=True,
+        help="Compañía a la que corresponde la factura según el CUIT del comprador.")
+    company_mismatch = fields.Boolean(compute="_compute_company_mismatch")
+
+    @api.depends("company_dest_id")
+    def _compute_company_mismatch(self):
+        for wiz in self:
+            wiz.company_mismatch = bool(
+                wiz.company_dest_id and wiz.company_dest_id != self.env.company)
     partner_ref = fields.Char(string="Referencia del proveedor")
     date_order = fields.Date(string="Fecha")
     currency_id = fields.Many2one("res.currency", string="Moneda")
@@ -70,12 +84,30 @@ class PoIaImportWizard(models.TransientModel):
         if not self.pdf_file:
             raise UserError(_("Subí primero el PDF del presupuesto."))
 
-        data = self.env["ia.haiku.service"].extract_purchase_quote(
-            self.pdf_file, self.pdf_filename or "presupuesto.pdf")
+        # Caché por hash del PDF: si ya se leyó esta factura, se reutiliza (sin
+        # volver a llamar a Haiku → sin costo). Útil al reabrir tras cambiar de cía.
+        try:
+            pdf_hash = hashlib.sha256(base64.b64decode(self.pdf_file)).hexdigest()
+        except Exception:
+            pdf_hash = None
+        Cache = self.env["po.ia.extraction.cache"]
+        cached = Cache.search([("pdf_hash", "=", pdf_hash)], limit=1) if pdf_hash else Cache.browse()
+        if cached:
+            data = json.loads(cached.result_json)
+        else:
+            data = self.env["ia.haiku.service"].extract_purchase_quote(
+                self.pdf_file, self.pdf_filename or "presupuesto.pdf")
+            if pdf_hash:
+                Cache.create({"pdf_hash": pdf_hash, "result_json": json.dumps(data)})
 
         prov = data.get("proveedor") or {}
         cuit = _norm_digits(prov.get("cuit"))
         partner = self._find_partner(cuit)
+
+        # Comprador (nosotros) → compañía destino según su CUIT.
+        comp = data.get("comprador") or {}
+        buyer_cuit = _norm_digits(comp.get("cuit"))
+        company_dest = self._find_company_by_cuit(buyer_cuit)
 
         usage = data.get("_usage") or {}
         tot = data.get("totales") or {}
@@ -87,6 +119,8 @@ class PoIaImportWizard(models.TransientModel):
             "pdf_total": tot.get("total") or 0.0,
             "detected_cuit": prov.get("cuit") or "",
             "detected_name": prov.get("razon_social") or "",
+            "buyer_cuit": comp.get("cuit") or "",
+            "company_dest_id": company_dest.id if company_dest else False,
             "partner_id": partner.id if partner else False,
             "partner_ref": data.get("referencia") or "",
             "date_order": data.get("fecha") or False,
@@ -275,6 +309,14 @@ class PoIaImportWizard(models.TransientModel):
                 return p
         return self.env["res.partner"].browse()
 
+    def _find_company_by_cuit(self, cuit_digits):
+        if not cuit_digits:
+            return self.env["res.company"].browse()
+        for c in self.env["res.company"].sudo().search([("vat", "!=", False)]):
+            if _norm_digits(c.vat) == cuit_digits:
+                return c
+        return self.env["res.company"].browse()
+
     def _find_currency(self, code):
         code = (code or "").strip().upper()
         if not code:
@@ -286,6 +328,15 @@ class PoIaImportWizard(models.TransientModel):
     # ------------------------------------------------------------------
     def action_create_po(self):
         self.ensure_one()
+        # La factura está dirigida a otra compañía: frenamos para que el usuario
+        # cambie de compañía. La lectura quedó cacheada (no se re-gasta IA al volver).
+        if self.company_dest_id and self.company_dest_id != self.env.company:
+            raise UserError(_(
+                "Esta factura corresponde a la compañía «%(dest)s», pero estás "
+                "trabajando en «%(actual)s».\n\nCambiá a «%(dest)s» (selector de "
+                "compañía, arriba a la derecha) y volvé a leer la factura: no se "
+                "vuelve a gastar IA, la lectura quedó guardada.",
+                dest=self.company_dest_id.name, actual=self.env.company.name))
         if not self.partner_id:
             raise UserError(_(
                 "No se reconoció el proveedor (CUIT detectado: %s). "

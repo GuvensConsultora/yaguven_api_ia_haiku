@@ -30,7 +30,18 @@
                     <field name="confidence" widget="percentage"/>
                     <field name="detected_cuit"/>
                     <field name="detected_name"/>
+                    <field name="company_dest_id"/>
+                    <field name="buyer_cuit"/>
+                    <field name="company_mismatch" invisible="1"/>
                     <field name="usage_info"/>
+                </group>
+                <group invisible="state != 'review' or not company_mismatch" col="1">
+                    <div class="alert alert-danger" role="alert">
+                        Esta factura corresponde a <field name="company_dest_id" readonly="1" nolabel="1"/>,
+                        pero estás trabajando en otra compañía. Cambiá a esa compañía
+                        (selector arriba a la derecha) y volvé a leer la factura
+                        (no se vuelve a gastar IA: la lectura quedó guardada).
+                    </div>
                 </group>
                 <group invisible="state != 'review' or not detected_cuit or partner_id"
                        col="1">
