@@ -42,6 +42,9 @@ class PoIaImportWizard(models.TransientModel):
     partner_id = fields.Many2one("res.partner", string="Proveedor", domain="[('is_company','in',[True,False])]")
     detected_cuit = fields.Char(string="CUIT detectado", readonly=True)
     detected_name = fields.Char(string="Razón social detectada", readonly=True)
+    detected_condicion = fields.Char(string="Condición IVA (PDF)", readonly=True)
+    detected_resp_id = fields.Many2one(
+        "l10n_ar.afip.responsibility.type", string="Responsabilidad detectada", readonly=True)
     buyer_cuit = fields.Char(string="CUIT comprador (PDF)", readonly=True)
     company_dest_id = fields.Many2one(
         "res.company", string="Compañía destino", readonly=True,
@@ -103,6 +106,8 @@ class PoIaImportWizard(models.TransientModel):
         prov = data.get("proveedor") or {}
         cuit = _norm_digits(prov.get("cuit"))
         partner = self._find_partner(cuit)
+        condicion = prov.get("condicion_iva") or ""
+        resp = self._map_responsibility(condicion)
 
         # Comprador (nosotros) → compañía destino según su CUIT.
         comp = data.get("comprador") or {}
@@ -121,6 +126,8 @@ class PoIaImportWizard(models.TransientModel):
             "detected_name": prov.get("razon_social") or "",
             "buyer_cuit": comp.get("cuit") or "",
             "company_dest_id": company_dest.id if company_dest else False,
+            "detected_condicion": condicion,
+            "detected_resp_id": resp.id if resp else False,
             "partner_id": partner.id if partner else False,
             "partner_ref": data.get("referencia") or "",
             "date_order": data.get("fecha") or False,
@@ -309,6 +316,46 @@ class PoIaImportWizard(models.TransientModel):
                 return p
         return self.env["res.partner"].browse()
 
+    def _map_responsibility(self, condicion):
+        """Mapea el texto de condición frente al IVA del PDF a la responsabilidad AFIP."""
+        c = (condicion or "").lower()
+        Resp = self.env["l10n_ar.afip.responsibility.type"]
+        code = None
+        if "monotrib" in c:
+            code = "6"
+        elif "exento" in c:
+            code = "4"
+        elif "no alcanz" in c:
+            code = "15"
+        elif "consumidor final" in c:
+            code = "5"
+        elif "responsable inscripto" in c or "resp. inscripto" in c or "resp inscripto" in c:
+            code = "1"
+        return Resp.search([("code", "=", code)], limit=1) if code else Resp.browse()
+
+    # Mapeo responsabilidad -> grupo de impuesto IVA de compra a aplicar.
+    # RI (1) y otros no listados: se respeta el IVA del producto (no se fuerza).
+    _RESP_TO_VAT_GROUP = {
+        "6": "VAT Not Applicable", "13": "VAT Not Applicable", "16": "VAT Not Applicable",
+        "4": "VAT Exempt", "10": "VAT Exempt",
+        "15": "VAT Not Applicable",
+    }
+
+    def _iva_tax_for_responsibility(self, company, resp):
+        """Devuelve el IVA de compra a forzar según la responsabilidad (No Aplica para
+        monotributo, Exento para exento) en la compañía dada. False para Resp. Inscripto
+        (se respeta el IVA del producto)."""
+        if not resp:
+            return self.env["account.tax"].browse()
+        group = self._RESP_TO_VAT_GROUP.get(resp.code)
+        if not group:
+            return self.env["account.tax"].browse()
+        return self.env["account.tax"].search([
+            ("type_tax_use", "=", "purchase"),
+            ("company_id", "=", company.id),
+            ("tax_group_id.name", "=", group),
+        ], limit=1)
+
     def _find_company_by_cuit(self, cuit_digits):
         if not cuit_digits:
             return self.env["res.company"].browse()
@@ -353,6 +400,11 @@ class PoIaImportWizard(models.TransientModel):
 
         self._check_duplicate()
 
+        # Corrección de responsabilidad del proveedor según el comprobante.
+        if (self.detected_resp_id
+                and self.partner_id.l10n_ar_afip_responsibility_type_id != self.detected_resp_id):
+            self.partner_id.l10n_ar_afip_responsibility_type_id = self.detected_resp_id.id
+
         order = self.env["purchase.order"].create({
             "partner_id": self.partner_id.id,
             "partner_ref": self.partner_ref or False,
@@ -364,6 +416,10 @@ class PoIaImportWizard(models.TransientModel):
         has_discount = "discount" in self.env["purchase.order.line"]._fields
         # Percepciones nativas a sumar a cada línea (además del IVA del producto).
         perc_taxes = self.percepcion_ids.mapped("tax_id")
+        # IVA a forzar según responsabilidad (No Aplica monotributo / Exento); para
+        # Resp. Inscripto queda vacío y se respeta el IVA del producto.
+        iva_tax = self._iva_tax_for_responsibility(
+            order.company_id, self.partner_id.l10n_ar_afip_responsibility_type_id)
         for wl in self.line_ids:
             line = self.env["purchase.order.line"].create({
                 "order_id": order.id,
@@ -375,7 +431,11 @@ class PoIaImportWizard(models.TransientModel):
                 write_vals["name"] = wl.descripcion
             if has_discount and wl.descuento:
                 write_vals["discount"] = wl.descuento
-            if perc_taxes:
+            if iva_tax:
+                # Monotributo/Exento: reemplazamos el IVA del producto por el 0%
+                # que corresponde + las percepciones.
+                write_vals["tax_ids"] = [(6, 0, (iva_tax | perc_taxes).ids)]
+            elif perc_taxes:
                 # (4, id) suma la percepción sin pisar el IVA que trae el producto.
                 write_vals["tax_ids"] = [(4, t.id) for t in perc_taxes]
             line.write(write_vals)

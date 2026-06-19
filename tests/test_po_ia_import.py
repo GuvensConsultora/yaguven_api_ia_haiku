@@ -263,6 +263,21 @@ class TestPoIaImport(TransactionCase):
             self._new_wizard().action_extract()  # mismo PDF → cache hit
             self.assertEqual(mocked.call_count, 1, "El 2º leído debe salir de la caché")
 
+    def test_map_responsibility(self):
+        wiz = self._new_wizard()
+        self.assertEqual(wiz._map_responsibility("Responsable Monotributo").code, "6")
+        self.assertEqual(wiz._map_responsibility("IVA Sujeto Exento").code, "4")
+        self.assertEqual(wiz._map_responsibility("IVA Responsable Inscripto").code, "1")
+        self.assertFalse(wiz._map_responsibility("texto sin condición"))
+
+    def test_iva_tax_ri_keeps_product_default(self):
+        # Resp. Inscripto y responsabilidad vacía → no se fuerza IVA (queda el del producto).
+        wiz = self._new_wizard()
+        Resp = self.env["l10n_ar.afip.responsibility.type"]
+        ri = Resp.search([("code", "=", "1")], limit=1)
+        self.assertFalse(wiz._iva_tax_for_responsibility(self.env.company, ri))
+        self.assertFalse(wiz._iva_tax_for_responsibility(self.env.company, Resp.browse()))
+
     def test_create_blocks_without_partner(self):
         wiz = self._new_wizard()
         fake = self._fake_extraction(

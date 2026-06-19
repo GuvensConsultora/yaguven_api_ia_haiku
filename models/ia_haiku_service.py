@@ -21,7 +21,10 @@ EXTRACTION_SYSTEM = (
     "de proveedores argentinos. Te paso un PDF y devolvés ÚNICAMENTE un objeto JSON "
     "válido, sin texto antes ni después, sin ```. Esquema exacto:\n"
     "{\n"
-    '  "proveedor": {"cuit": "<solo dígitos o vacío>", "razon_social": "<str>"},\n'
+    '  "proveedor": {"cuit": "<solo dígitos o vacío>", "razon_social": "<str>",\n'
+    '                "condicion_iva": "<condición del emisor frente al IVA, tal como '
+    'figura: IVA Responsable Inscripto / Responsable Monotributo / IVA Sujeto Exento / '
+    'Consumidor Final / etc., o vacío>"},\n'
     '  "comprador": {"cuit": "<solo dígitos o vacío>", "razon_social": "<str>"},\n'
     '  "referencia": "<nro de presupuesto/oferta del proveedor o vacío>",\n'
     '  "fecha": "<YYYY-MM-DD o vacío>",\n'

@@ -32,6 +32,8 @@
                     <field name="detected_name"/>
                     <field name="company_dest_id"/>
                     <field name="buyer_cuit"/>
+                    <field name="detected_condicion"/>
+                    <field name="detected_resp_id"/>
                     <field name="company_mismatch" invisible="1"/>
                     <field name="usage_info"/>
                 </group>
