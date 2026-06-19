@@ -30,10 +30,13 @@ class PurchaseOrder(models.Model):
             [("order_id", "=", self.id)], limit=1)
 
         move_vals = self._prepare_invoice()
+        # Nro de factura: lo tomamos de la OC (Referencia del proveedor); si no,
+        # del dato que cargó el wizard de IA.
+        ref = self.partner_ref or source.invoice_number
+        if ref:
+            move_vals["ref"] = ref
         if source.invoice_date:
             move_vals["invoice_date"] = source.invoice_date
-        if source.invoice_number:
-            move_vals["ref"] = source.invoice_number
 
         line_cmds = []
         for line in self.order_line:
