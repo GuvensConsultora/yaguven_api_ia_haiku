@@ -420,6 +420,8 @@ class PoIaImportWizard(models.TransientModel):
             "<strong>%s</strong> del proveedor%s.</p>"
         ) % (html_escape(fname), Markup(" (adjunto)") if attachment_ids else Markup(""))
         body += self._totales_comparison_html(order)
+        if self.notes and self.notes.strip():
+            body += Markup("<p><strong>Notas de la IA:</strong> %s</p>") % html_escape(self.notes.strip())
 
         order.message_post(
             body=body,
