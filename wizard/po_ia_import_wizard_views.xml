@@ -67,6 +67,10 @@
                                decoration-success="match_status in ('auto_supplier','auto_code','created')"
                                decoration-info="match_status in ('suggested','auto_prefix')"
                                decoration-danger="match_status == 'none'"/>
+                        <field name="series" widget="text"
+                               placeholder="Una serie por línea"
+                               help="Series del renglón (una por unidad). Se vuelcan a la recepción de productos por serie."/>
+                        <field name="series_count" string="# Ser." optional="show"/>
                         <button name="action_open_product_create" type="object"
                                 string="Crear producto" icon="fa-plus"
                                 invisible="product_id"

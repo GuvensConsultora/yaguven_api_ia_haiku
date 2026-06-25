@@ -21,6 +21,17 @@ class PoIaImportSource(models.Model):
 class PurchaseOrder(models.Model):
     _inherit = "purchase.order"
 
+    def button_confirm(self):
+        """Tras confirmar (que genera la recepción), vuelca a las move lines
+        de la recepción los seriales capturados en el ppto por IA.
+
+        El volcado vive en `stock.picking._yaguven_load_po_serials` (C.2:
+        herencia, lógica en su modelo). Es idempotente: si ya se cargaron, no
+        duplica (B.7)."""
+        res = super().button_confirm()
+        self.picking_ids._yaguven_load_po_serials()
+        return res
+
     def action_ia_create_invoice(self):
         """Crea la factura de proveedor para cualquier OC con las CANTIDADES
         COMPLETAS de la orden (no las recibidas). Si la OC fue cargada por IA,

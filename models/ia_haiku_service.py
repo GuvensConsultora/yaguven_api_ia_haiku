@@ -32,7 +32,7 @@ EXTRACTION_SYSTEM = (
     '  "lineas": [\n'
     '    {"codigo": "<código del proveedor>", "descripcion": "<str>",\n'
     '     "cantidad": <número>, "precio_unit": <número>, "descuento": <número 0-100>,\n'
-    '     "importe": <número>}\n'
+    '     "importe": <número>, "series": ["<nro de serie por unidad>"]}\n'
     "  ],\n"
     '  "percepciones": [\n'
     '    {"tipo": "<IIBB|IVA|Ganancias|otro>", "jurisdiccion": "<provincia o vacío>",\n'
@@ -47,6 +47,10 @@ EXTRACTION_SYSTEM = (
     "está dirigida (el cliente/destinatario, normalmente nosotros) — su CUIT suele "
     "figurar como 'Nro. C.U.I.T.' del cliente. "
     "'codigo' es el código tal cual lo escribe el proveedor (NO inventes). "
+    "'series' es la lista de números de serie del renglón (columna 'Serie' / "
+    "'Serial' / 'N° Serie'), UNO por unidad: si la cantidad es 3 y hay 3 "
+    "seriales, listá los 3; si el renglón no trae serie, dejá la lista vacía. "
+    "Copialos tal cual figuran (NO inventes ni completes con ceros). "
     "Si un dato no está, dejalo vacío o 0. "
     "'precio_unit' es el unitario SIN descuento (precio de lista por unidad), sin IVA "
     "si se distingue; si no, el que figure. "

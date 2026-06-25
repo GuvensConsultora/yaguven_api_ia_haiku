@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_form_yaguven_load_serials" model="ir.ui.view">
+        <field name="name">stock.picking.form.yaguven.load.serials</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <button name="action_assign" position="before">
+                <button name="action_yaguven_load_po_serials" type="object"
+                        string="Cargar series desde OC"
+                        invisible="state in ('done', 'cancel') or picking_type_code != 'incoming'"
+                        help="Pre-carga (editable) las series capturadas en el presupuesto por IA en las líneas de esta recepción. Idempotente: no duplica."/>
+            </button>
+        </field>
+    </record>
+</odoo>

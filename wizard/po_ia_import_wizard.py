@@ -205,6 +205,9 @@ class PoIaImportWizard(models.TransientModel):
             importe = ln.get("importe") or 0.0
             descuento = self._discount_pct(precio_unit, cantidad, importe, ln.get("descuento") or 0.0)
             product, status = self._match_product(partner, codigo, desc, code_index=code_index)
+            series = ln.get("series") or []
+            series_txt = "\n".join(
+                s.strip() for s in series if isinstance(s, str) and s.strip())
             cmds.append((0, 0, {
                 "codigo": codigo,
                 "descripcion": desc,
@@ -214,6 +217,7 @@ class PoIaImportWizard(models.TransientModel):
                 "importe": importe,
                 "product_id": product.id if product else False,
                 "match_status": status,
+                "series": series_txt,
             }))
         return cmds
 
@@ -440,6 +444,7 @@ class PoIaImportWizard(models.TransientModel):
                 write_vals["tax_ids"] = [(4, t.id) for t in perc_taxes]
             line.write(write_vals)
             self._seed_supplierinfo(wl)
+            self._seed_serials(wl, line)
 
         # Marca la OC como cargada por IA y guarda nro/fecha de la factura del
         # proveedor para volcarlos al crear la factura (action_ia_create_invoice).
@@ -568,6 +573,24 @@ class PoIaImportWizard(models.TransientModel):
                 **si_vals,
             })
 
+    def _seed_serials(self, wl, po_line):
+        """Persiste los seriales de la línea del wizard en `po.ia.line.serial`
+        (uno por unidad), para volcarlos a la recepción al confirmar la OC.
+
+        Dedupe por (po_line, serial) — B.7. No bloquea por cantidad: si el nro
+        de seriales no coincide con la cantidad, igual se guardan; el aviso se
+        emite al confirmar la OC (purchase_order).
+        """
+        serials = wl._series_list()
+        if not serials:
+            return
+        Serial = self.env["po.ia.line.serial"]
+        for s in serials:
+            if Serial.search_count([
+                ("po_line_id", "=", po_line.id), ("serial", "=", s)]):
+                continue
+            Serial.create({"po_line_id": po_line.id, "serial": s})
+
     def _reopen(self):
         return {
             "type": "ir.actions.act_window",
@@ -603,6 +626,24 @@ class PoIaImportWizardLine(models.TransientModel):
         ("created", "Creado"),
         ("none", "Sin match"),
     ], string="Match", default="none")
+    series = fields.Text(
+        string="Series",
+        help="Números de serie del renglón, UNO por línea (una por unidad). "
+             "Al confirmar la OC se vuelcan a la recepción como serie/lote de "
+             "los productos trackeados por serie. Editable.")
+    series_count = fields.Integer(
+        string="# Series", compute="_compute_series_count")
+
+    @api.depends("series")
+    def _compute_series_count(self):
+        for line in self:
+            line.series_count = len(line._series_list())
+
+    def _series_list(self):
+        """Lista de seriales saneada (acepta separados por enter o coma)."""
+        self.ensure_one()
+        raw = (self.series or "").replace(",", "\n")
+        return [s.strip() for s in raw.split("\n") if s.strip()]
 
     def action_open_product_create(self):
         """Abre el sub-wizard para crear el producto/variante de esta línea."""

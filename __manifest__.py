@@ -1,6 +1,6 @@
 {
     "name": "Yagüven — Carga de presupuestos de compra con IA (Haiku)",
-    "version": "19.0.1.15.0",
+    "version": "19.0.2.0.0",
     "author": "Yagüven C.G.",
     "website": "https://yaguven.com",
     "category": "Purchases",
@@ -36,13 +36,14 @@ Diseño
   escribe directo después del create (campo computado-almacenado).
 """,
     "depends": [
-        "purchase",
+        "purchase_stock",
         "l10n_ar",
     ],
     "data": [
         "security/ir.model.access.csv",
         "views/res_config_settings_views.xml",
         "views/purchase_order_views.xml",
+        "views/stock_picking_views.xml",
         "wizard/po_ia_import_wizard_views.xml",
         "wizard/po_ia_product_create_wizard_views.xml",
     ],

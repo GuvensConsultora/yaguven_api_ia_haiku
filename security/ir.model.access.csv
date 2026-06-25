@@ -6,3 +6,5 @@ access_po_ia_product_create_attr_purchase,po.ia.product.create.attr purchase use
 access_po_ia_import_wizard_perception_purchase,po.ia.import.wizard.perception purchase user,model_po_ia_import_wizard_perception,purchase.group_purchase_user,1,1,1,1
 access_po_ia_import_source_purchase,po.ia.import.source purchase user,model_po_ia_import_source,purchase.group_purchase_user,1,1,1,1
 access_po_ia_extraction_cache_purchase,po.ia.extraction.cache purchase user,model_po_ia_extraction_cache,purchase.group_purchase_user,1,1,1,1
+access_po_ia_line_serial_purchase,po.ia.line.serial purchase user,model_po_ia_line_serial,purchase.group_purchase_user,1,1,1,1
+access_po_ia_line_serial_stock,po.ia.line.serial stock user,model_po_ia_line_serial,stock.group_stock_user,1,1,1,1
