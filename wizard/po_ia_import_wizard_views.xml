@@ -53,15 +53,25 @@
                     </div>
                 </group>
 
+                <div class="o_row" invisible="state != 'review'" style="margin-bottom:6px;">
+                    <field name="bulk_product_id" options="{'no_create': True}"
+                           placeholder="Producto a asignar a las seleccionadas..."
+                           class="oe_inline"/>
+                    <button name="action_apply_bulk_product" type="object"
+                            string="Aplicar a seleccionadas" icon="fa-arrow-down"
+                            class="btn-secondary"
+                            help="Carga el producto elegido en todas las líneas tildadas en 'Sel.'."/>
+                </div>
                 <field name="line_ids" invisible="state != 'review'">
                     <list editable="bottom">
+                        <field name="to_apply" string="Sel." width="45"/>
                         <field name="codigo" string="Código proveedor" optional="hide"/>
-                        <field name="descripcion" string="Descripción (PDF)"/>
-                        <field name="series" widget="text" string="Series"
+                        <field name="descripcion" string="Descripción (PDF)" width="340"/>
+                        <field name="series" widget="text" string="Series" width="150"
                                placeholder="Una serie por unidad"
                                help="Series del renglón (una por unidad). Se vuelcan a la recepción de productos por serie."/>
                         <field name="series_count" string="# Ser." optional="hide"/>
-                        <field name="product_id" string="Producto a seleccionar"
+                        <field name="product_id" string="Producto a seleccionar" width="280"
                                options="{'no_create': True}"/>
                         <field name="match_status" widget="badge" string="Match" optional="hide"
                                decoration-success="match_status in ('auto_supplier','auto_code','created')"

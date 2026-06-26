@@ -67,6 +67,11 @@ class PoIaImportWizard(models.TransientModel):
     currency_id = fields.Many2one("res.currency", string="Moneda")
 
     line_ids = fields.One2many("po.ia.import.wizard.line", "wizard_id", string="Líneas")
+    bulk_product_id = fields.Many2one(
+        "product.product", string="Asignar producto",
+        domain="[('purchase_ok','=',True)]",
+        help="Elegí un producto y tocá 'Aplicar a seleccionadas' para cargarlo "
+             "en todas las líneas tildadas en la columna 'Sel.'.")
     percepcion_ids = fields.One2many(
         "po.ia.import.wizard.perception", "wizard_id", string="Percepciones")
 
@@ -383,6 +388,23 @@ class PoIaImportWizard(models.TransientModel):
             return self.env["res.currency"].browse()
         return self.env["res.currency"].search([("name", "=", code)], limit=1)
 
+    def action_apply_bulk_product(self):
+        """Carga el producto elegido (`bulk_product_id`) en todas las líneas
+        tildadas en la columna 'Sel.'. Pensado para el caso muchos-a-uno de
+        recapado: muchas líneas distintas al mismo producto de una."""
+        self.ensure_one()
+        if not self.bulk_product_id:
+            raise UserError(_("Elegí primero el producto a asignar."))
+        targets = self.line_ids.filtered("to_apply")
+        if not targets:
+            raise UserError(_("Tildá al menos una línea en la columna 'Sel.'."))
+        targets.write({
+            "product_id": self.bulk_product_id.id,
+            "match_status": "created",
+            "to_apply": False,
+        })
+        return self._reopen()
+
     # ------------------------------------------------------------------
     # Creación del presupuesto de compra
     # ------------------------------------------------------------------
@@ -642,6 +664,11 @@ class PoIaImportWizardLine(models.TransientModel):
              "los productos trackeados por serie. Editable.")
     series_count = fields.Integer(
         string="# Series", compute="_compute_series_count")
+    to_apply = fields.Boolean(
+        string="Sel.",
+        help="Tildá las líneas a las que querés cargar el mismo producto, "
+             "elegilo arriba en 'Asignar producto' y tocá 'Aplicar a "
+             "seleccionadas'.")
 
     @api.depends("series")
     def _compute_series_count(self):
