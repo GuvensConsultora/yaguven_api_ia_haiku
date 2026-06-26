@@ -56,16 +56,12 @@
                 <field name="line_ids" invisible="state != 'review'">
                     <list editable="bottom">
                         <field name="codigo"/>
-                        <field name="descripcion"/>
-                        <field name="series" widget="text"
+                        <field name="descripcion" string="Descripción (PDF)"/>
+                        <field name="series" widget="text" string="Series"
                                placeholder="Una serie por unidad"
                                help="Series del renglón (una por unidad). Se vuelcan a la recepción de productos por serie."/>
                         <field name="series_count" string="# Ser." optional="show"/>
-                        <field name="cantidad"/>
-                        <field name="precio_unit"/>
-                        <field name="descuento"/>
-                        <field name="importe" readonly="1"/>
-                        <field name="product_id"
+                        <field name="product_id" string="Producto a seleccionar"
                                options="{'no_create': True}"/>
                         <field name="match_status" widget="badge"
                                decoration-success="match_status in ('auto_supplier','auto_code','created')"
@@ -75,6 +71,10 @@
                                 string="Crear producto" icon="fa-plus"
                                 invisible="product_id"
                                 help="Crear el producto/variante de esta línea"/>
+                        <field name="cantidad"/>
+                        <field name="precio_unit"/>
+                        <field name="descuento"/>
+                        <field name="importe" readonly="1"/>
                     </list>
                 </field>
 
