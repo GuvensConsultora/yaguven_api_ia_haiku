@@ -67,3 +67,37 @@ class PurchaseOrder(models.Model):
             "view_mode": "form",
             "target": "current",
         }
+
+
+class PurchaseOrderLine(models.Model):
+    _inherit = "purchase.order.line"
+
+    # Relación inversa a la tabla propia de seriales (C.2: no agrega columna de
+    # dato al nativo; el o2m es virtual). Los seriales se siembran al crear la
+    # OC desde el wizard de IA y se vuelcan a la recepción al confirmar.
+    ia_serial_ids = fields.One2many(
+        "po.ia.line.serial", "po_line_id", string="Series (IA)")
+    ia_serials_display = fields.Char(
+        string="Nro Serie", compute="_compute_ia_serials_display",
+        inverse="_inverse_ia_serials_display", store=False,
+        help="Series leídas de la factura del proveedor (una por unidad). "
+             "Editable: si las corregís acá, se actualizan las que se vuelcan "
+             "a la recepción al confirmar la OC.")
+
+    @api.depends("ia_serial_ids.serial")
+    def _compute_ia_serials_display(self):
+        for line in self:
+            line.ia_serials_display = ", ".join(line.ia_serial_ids.mapped("serial"))
+
+    def _inverse_ia_serials_display(self):
+        Serial = self.env["po.ia.line.serial"]
+        for line in self:
+            raw = (line.ia_serials_display or "").replace("\n", ",")
+            serials = [s.strip() for s in raw.split(",") if s.strip()]
+            # Recrea la lista (dedupe por orden de tipeo). No reescribe si no
+            # cambió, para no resembrar al solo abrir/guardar.
+            if serials == line.ia_serial_ids.mapped("serial"):
+                continue
+            line.ia_serial_ids.unlink()
+            for s in serials:
+                Serial.create({"po_line_id": line.id, "serial": s})

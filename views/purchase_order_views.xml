@@ -18,6 +18,12 @@
                         string="Crear factura" class="btn-primary"
                         invisible="state != 'purchase' or invoice_status == 'invoiced'"/>
             </xpath>
+            <!-- Columna Nro Serie en las líneas de la OC: muestra las series
+                 leídas de la factura del proveedor; editable. -->
+            <xpath expr="//field[@name='order_line']//field[@name='product_qty']" position="after">
+                <field name="ia_serials_display" string="Nro Serie" optional="show"
+                       placeholder="Series leídas..."/>
+            </xpath>
         </field>
     </record>
 </odoo>
