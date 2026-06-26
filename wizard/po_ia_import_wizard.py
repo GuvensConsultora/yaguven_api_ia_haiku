@@ -16,7 +16,7 @@ _logger = logging.getLogger(__name__)
 # cambiar el esquema/prompt (p. ej. agregar 'series'), se invalida la caché
 # vieja y se vuelve a llamar a Haiku, en vez de devolver una extracción
 # previa sin los campos nuevos. Bumpear ante cualquier cambio de esquema.
-EXTRACTION_SCHEMA_VERSION = "2026-06-series"
+EXTRACTION_SCHEMA_VERSION = "2026-06-series-iva-no-desc"
 
 
 def _norm_digits(value):
@@ -235,18 +235,31 @@ class PoIaImportWizard(models.TransientModel):
             }))
         return cmds
 
-    @staticmethod
-    def _discount_pct(precio_unit, cantidad, importe, descuento_ia):
-        """Devuelve el % de descuento de la línea.
+    # Alícuotas de IVA AR típicas: si el 'descuento' de la IA coincide con una de
+    # ellas, casi seguro confundió el % de IVA con un descuento → se descarta.
+    _IVA_RATES = (2.5, 5.0, 10.5, 21.0, 27.0)
 
-        Si hay `importe` (total con descuento, sin IVA) y un bruto > 0, calcula el %
-        exacto = (1 - importe/bruto)*100 — banca facturas que dan el descuento como
-        monto (caso Michelin). Si no, usa el `descuento` de la IA cuando es un % válido.
+    @classmethod
+    def _discount_pct(cls, precio_unit, cantidad, importe, descuento_ia):
+        """Devuelve el % de descuento REAL de la línea.
+
+        Regla de oro: si hay `importe` (total de la línea, sin IVA) se deriva el
+        descuento SOLO de los montos — NUNCA del 'descuento' que extrajo la IA,
+        que suele venir contaminado con el % de IVA (21/10,5). Así, sin brecha de
+        precio, el descuento es 0 aunque la IA haya puesto 21.
+
+        - importe == bruto (o >= bruto)  -> 0 (no hay descuento).
+        - importe <  bruto               -> (1 - importe/bruto)*100 (descuento real).
+        - sin importe confiable          -> recién ahí el % de la IA, salvo que
+          coincida con una alícuota de IVA típica (se descarta por las dudas).
         """
         bruto = (precio_unit or 0.0) * (cantidad or 0.0)
-        if importe and bruto and 0 < importe < bruto:
-            return round((1.0 - importe / bruto) * 100.0, 4)
-        if 0.0 <= descuento_ia <= 100.0:
+        if importe and bruto:
+            pct = (1.0 - importe / bruto) * 100.0
+            if pct <= 0.01 or pct > 100.0:   # sin brecha (o importe>=bruto) -> sin descuento
+                return 0.0
+            return round(pct, 4)
+        if 0.0 < descuento_ia <= 100.0 and round(descuento_ia, 2) not in cls._IVA_RATES:
             return descuento_ia
         return 0.0
 
