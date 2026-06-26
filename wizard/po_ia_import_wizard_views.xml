@@ -53,8 +53,21 @@
                     </div>
                 </group>
 
+                <div class="alert alert-info d-flex align-items-center gap-2"
+                     role="alert" invisible="state != 'review'"
+                     style="margin-bottom:8px;">
+                    <span><b>Asignar en lote:</b> tildá las líneas en <b>Sel.</b>, elegí el producto y</span>
+                    <field name="bulk_product_id" options="{'no_create': True}"
+                           placeholder="Producto a asignar..." class="oe_inline"
+                           style="min-width:280px;"/>
+                    <button name="action_apply_bulk_product" type="object"
+                            string="Aplicar a tildadas" icon="fa-arrow-down"
+                            class="btn-primary"
+                            help="Carga el producto elegido en todas las líneas tildadas en 'Sel.'."/>
+                </div>
                 <field name="line_ids" invisible="state != 'review'">
-                    <list editable="bottom" multi_edit="1">
+                    <list editable="bottom">
+                        <field name="to_apply" string="Sel." width="50"/>
                         <field name="codigo" string="Código proveedor" optional="hide"/>
                         <field name="descripcion" string="Descripción (PDF)" width="340"/>
                         <field name="series" widget="text" string="Series" width="150"

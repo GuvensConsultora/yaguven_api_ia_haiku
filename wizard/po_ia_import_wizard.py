@@ -67,6 +67,11 @@ class PoIaImportWizard(models.TransientModel):
     currency_id = fields.Many2one("res.currency", string="Moneda")
 
     line_ids = fields.One2many("po.ia.import.wizard.line", "wizard_id", string="Líneas")
+    bulk_product_id = fields.Many2one(
+        "product.product", string="Producto a asignar",
+        domain="[('purchase_ok','=',True)]",
+        help="Elegí un producto y tocá 'Aplicar a tildadas' para cargarlo en "
+             "todas las líneas marcadas en la columna 'Sel.'.")
     percepcion_ids = fields.One2many(
         "po.ia.import.wizard.perception", "wizard_id", string="Percepciones")
 
@@ -383,6 +388,22 @@ class PoIaImportWizard(models.TransientModel):
             return self.env["res.currency"].browse()
         return self.env["res.currency"].search([("name", "=", code)], limit=1)
 
+    def action_apply_bulk_product(self):
+        """Carga `bulk_product_id` en todas las líneas tildadas ('Sel.').
+        Caso muchos-a-uno de recapado: muchas líneas distintas → un producto."""
+        self.ensure_one()
+        if not self.bulk_product_id:
+            raise UserError(_("Elegí primero el producto a asignar."))
+        targets = self.line_ids.filtered("to_apply")
+        if not targets:
+            raise UserError(_("Tildá al menos una línea en la columna 'Sel.'."))
+        targets.write({
+            "product_id": self.bulk_product_id.id,
+            "match_status": "created",
+            "to_apply": False,
+        })
+        return self._reopen()
+
     # ------------------------------------------------------------------
     # Creación del presupuesto de compra
     # ------------------------------------------------------------------
@@ -642,6 +663,10 @@ class PoIaImportWizardLine(models.TransientModel):
              "los productos trackeados por serie. Editable.")
     series_count = fields.Integer(
         string="# Series", compute="_compute_series_count")
+    to_apply = fields.Boolean(
+        string="Sel.",
+        help="Tildá las líneas que querés asignar al mismo producto, elegilo "
+             "arriba en 'Producto a asignar' y tocá 'Aplicar a tildadas'.")
 
     @api.depends("series")
     def _compute_series_count(self):
