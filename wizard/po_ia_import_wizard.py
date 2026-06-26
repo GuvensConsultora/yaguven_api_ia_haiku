@@ -16,7 +16,7 @@ _logger = logging.getLogger(__name__)
 # cambiar el esquema/prompt (p. ej. agregar 'series'), se invalida la caché
 # vieja y se vuelve a llamar a Haiku, en vez de devolver una extracción
 # previa sin los campos nuevos. Bumpear ante cualquier cambio de esquema.
-EXTRACTION_SCHEMA_VERSION = "2026-06-series-iva-no-desc"
+EXTRACTION_SCHEMA_VERSION = "2026-06-series-charbychar"
 
 
 def _norm_digits(value):
