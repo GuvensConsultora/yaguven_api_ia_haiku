@@ -55,15 +55,15 @@
 
                 <field name="line_ids" invisible="state != 'review'">
                     <list editable="bottom">
-                        <field name="codigo"/>
+                        <field name="codigo" string="Código proveedor" optional="hide"/>
                         <field name="descripcion" string="Descripción (PDF)"/>
                         <field name="series" widget="text" string="Series"
                                placeholder="Una serie por unidad"
                                help="Series del renglón (una por unidad). Se vuelcan a la recepción de productos por serie."/>
-                        <field name="series_count" string="# Ser." optional="show"/>
+                        <field name="series_count" string="# Ser." optional="hide"/>
                         <field name="product_id" string="Producto a seleccionar"
                                options="{'no_create': True}"/>
-                        <field name="match_status" widget="badge"
+                        <field name="match_status" widget="badge" string="Match" optional="hide"
                                decoration-success="match_status in ('auto_supplier','auto_code','created')"
                                decoration-info="match_status in ('suggested','auto_prefix')"
                                decoration-danger="match_status == 'none'"/>
