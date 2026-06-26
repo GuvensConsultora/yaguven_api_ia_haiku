@@ -12,6 +12,12 @@ from odoo.tools.misc import html_escape
 
 _logger = logging.getLogger(__name__)
 
+# Versión del esquema de extracción. Forma parte de la clave de caché: al
+# cambiar el esquema/prompt (p. ej. agregar 'series'), se invalida la caché
+# vieja y se vuelve a llamar a Haiku, en vez de devolver una extracción
+# previa sin los campos nuevos. Bumpear ante cualquier cambio de esquema.
+EXTRACTION_SCHEMA_VERSION = "2026-06-series"
+
 
 def _norm_digits(value):
     """Devuelve solo los dígitos de un CUIT/VAT (para comparar con/sin guiones)."""
@@ -91,6 +97,9 @@ class PoIaImportWizard(models.TransientModel):
         # volver a llamar a Haiku → sin costo). Útil al reabrir tras cambiar de cía.
         try:
             pdf_hash = hashlib.sha256(base64.b64decode(self.pdf_file)).hexdigest()
+            # La versión del esquema entra en la clave: un cambio de esquema
+            # invalida la caché vieja (evita devolver extracciones sin 'series').
+            pdf_hash = "%s:%s" % (pdf_hash, EXTRACTION_SCHEMA_VERSION)
         except Exception:
             pdf_hash = None
         Cache = self.env["po.ia.extraction.cache"]
